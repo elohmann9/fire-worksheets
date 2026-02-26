@@ -1,0 +1,669 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Structure Fire Tactical Worksheet</title>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow+Condensed:wght@400;600;700;900&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+
+:root {
+  --black: #111;
+  --border: #333;
+  --mid: #555;
+  --bg: #ffffff;
+  --row-alt: #fafafa;
+  --shdr: #1c1c1c;
+  --shdr-t: #ffffff;
+  --font: 'Barlow Condensed', sans-serif;
+  --mono: 'Share Tech Mono', monospace;
+}
+
+html, body {
+  width:100%; height:100%;
+  background:#888;
+  -webkit-text-size-adjust:none;
+  text-size-adjust:none;
+}
+
+.page {
+  width: 1366px;
+  background: var(--bg);
+  margin: 8px auto;
+  padding: 10px 12px 72px 12px;
+  position: relative;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.4);
+  font-family: var(--font);
+  font-size: 12px;
+  color: var(--black);
+}
+
+/* CANVAS */
+#draw-canvas {
+  position: absolute;
+  top:0; left:0;
+  width:100%; height:100%;
+  z-index:50;
+  touch-action:none;
+  pointer-events:none;
+}
+
+/* TOOLBAR */
+#toolbar {
+  position: fixed;
+  bottom: 14px; left: 50%;
+  transform: translateX(-50%);
+  display: flex; align-items: center; gap: 4px;
+  background: rgba(8,8,8,0.95);
+  border-radius: 44px;
+  padding: 7px 16px;
+  z-index: 200;
+  backdrop-filter: blur(16px);
+  box-shadow: 0 6px 32px rgba(0,0,0,0.6);
+  white-space: nowrap;
+  user-select: none;
+}
+.tbtn {
+  background:transparent; border:none;
+  color:#bbb; font-size:17px;
+  width:36px; height:36px; border-radius:50%;
+  display:flex; align-items:center; justify-content:center;
+  cursor:pointer; transition:all 0.15s; flex-shrink:0;
+  -webkit-tap-highlight-color:transparent;
+}
+.tbtn:active, .tbtn.active { background:#e8400c; color:#fff; }
+.tsep { width:1px; height:22px; background:rgba(255,255,255,0.15); margin:0 4px; flex-shrink:0; }
+.tlabel { font-size:9px; color:#666; letter-spacing:0.1em; text-transform:uppercase; margin-right:2px; }
+#color-input { width:26px; height:26px; border-radius:50%; border:2px solid rgba(255,255,255,0.2); cursor:pointer; padding:0; background:none; overflow:hidden; flex-shrink:0; }
+#stroke-size { width:64px; accent-color:#e8400c; cursor:pointer; }
+.swatch { width:22px; height:22px; border-radius:50%; border:2px solid rgba(255,255,255,0.2); cursor:pointer; flex-shrink:0; transition:transform 0.1s,border-color 0.1s; -webkit-tap-highlight-color:transparent; }
+.swatch:active, .swatch.sel { transform:scale(1.25); border-color:#fff; }
+#mode-badge { font-size:10px; letter-spacing:0.08em; text-transform:uppercase; color:#888; min-width:70px; text-align:center; }
+
+/* ── FORM ── */
+.form-title {
+  text-align:center; font-weight:900; font-size:16px;
+  letter-spacing:0.3em; text-transform:uppercase;
+  border-bottom:2.5px solid var(--black);
+  padding-bottom:5px; margin-bottom:7px;
+}
+
+.hdr-grid { display:grid; grid-template-columns:2.2fr 1fr 1fr 1.4fr; border:1.5px solid var(--black); margin-bottom:3px; }
+.hdr-cell { padding:3px 7px; border-right:1px solid var(--black); display:flex; flex-direction:column; gap:3px; }
+.hdr-cell:last-child { border-right:none; }
+.lbl { font-weight:700; font-size:9px; letter-spacing:0.14em; text-transform:uppercase; color:var(--mid); }
+.wline { border-bottom:1px solid #999; min-height:18px; }
+
+.sizeup-bar { border:1.5px solid var(--black); border-top:none; padding:3px 7px; display:flex; gap:6px; align-items:center; margin-bottom:3px; }
+.sizeup-bar .lbl { flex-shrink:0; }
+.sizeup-bar .wline { flex:1; }
+
+.times-bar { display:grid; grid-template-columns:repeat(6,1fr); border:1.5px solid var(--black); border-top:none; margin-bottom:6px; }
+.time-cell { padding:2px 6px; border-right:1px solid var(--black); display:flex; flex-direction:column; gap:2px; }
+.time-cell:last-child { border-right:none; }
+
+/* ── LEGEND ── */
+.legend { border:1.5px solid var(--black); margin-bottom:6px; }
+.legend-body { display:grid; grid-template-columns:repeat(4,1fr); }
+.leg-item { display:flex; align-items:center; gap:8px; padding:5px 9px; border-right:1px solid #eee; }
+.leg-item:last-child { border-right:none; }
+.leg-sym { font-family:var(--mono); font-size:14px; font-weight:700; min-width:40px; text-align:center; flex-shrink:0; line-height:1.2; }
+.leg-desc { font-size:10px; color:#444; line-height:1.3; }
+
+/* ── 3-COL MAIN ── */
+.main-grid { display:grid; grid-template-columns:270px 1fr 430px; gap:6px; align-items:start; }
+
+/* SECTION */
+.sec { border:1.5px solid var(--black); margin-bottom:5px; }
+.sec:last-child { margin-bottom:0; }
+.sec-hdr {
+  background:var(--shdr); color:var(--shdr-t);
+  font-weight:900; font-size:10px; letter-spacing:0.2em; text-transform:uppercase;
+  padding:4px 8px; display:flex; align-items:center; justify-content:space-between;
+}
+.sec-hdr.a2 { background:#3a1a00; }
+.sec-hdr.a3 { background:#2a0000; }
+.sec-hdr.solar { background:#1a3000; color:#c8ff00; }
+.sec-hdr.mayday { background:#1c1c1c; border-left:5px solid #e8400c; }
+.sec-hdr small { font-size:8px; font-weight:400; color:#aaa; letter-spacing:0.05em; text-transform:none; }
+
+/* STAGING ROWS */
+.col-hdr { display:grid; grid-template-columns:48px 1fr 58px; background:#f0f0f0; border-bottom:1px solid #ccc; }
+.col-hdr span { font-size:8px; color:#999; padding:2px 5px; letter-spacing:0.07em; border-right:1px solid #ddd; }
+.col-hdr span:last-child { border-right:none; text-align:center; }
+
+.s-row { display:grid; grid-template-columns:48px 1fr 58px; border-bottom:1px solid #e0e0e0; min-height:32px; }
+.s-row:last-child { border-bottom:none; }
+.s-row:nth-child(even) { background:#fafafa; }
+.s-tag { font-family:var(--mono); font-weight:700; font-size:12px; padding:0 5px; border-right:1px solid #ddd; display:flex; align-items:center; color:#222; background:#f0f0f0; letter-spacing:0.04em; flex-shrink:0; }
+.s-name { border-right:1px solid #ddd; min-height:32px; /* big blank area for Pencil */ }
+.s-time { display:flex; align-items:center; justify-content:center; font-size:9px; color:#ccc; font-family:var(--mono); letter-spacing:0.04em; }
+
+/* CHECKLIST */
+.clist { display:flex; flex-direction:column; }
+.c2col { display:grid; grid-template-columns:1fr 1fr; }
+.crow {
+  display:flex; align-items:center; gap:7px;
+  padding:4px 7px; border-bottom:1px solid #ececec; min-height:28px;
+  cursor:pointer; -webkit-tap-highlight-color:transparent;
+}
+.crow:last-child { border-bottom:none; }
+.crow:nth-child(even) { background:#fafafa; }
+.crow input[type=checkbox] { width:16px; height:16px; accent-color:#000; flex-shrink:0; cursor:pointer; pointer-events:auto; }
+.crow span { font-size:12px; font-family:var(--font); font-weight:500; letter-spacing:0.02em; line-height:1.2; color:var(--black); user-select:none; }
+
+/* ASSIGNMENT BOXES */
+.assign-grid { display:grid; grid-template-columns:1fr 1fr; gap:5px; padding:5px; }
+.abox { border:1.5px solid var(--black); display:flex; flex-direction:column; min-height:88px; }
+.abox.wide { grid-column:span 2; min-height:68px; }
+.abox-hdr { background:var(--shdr); color:var(--shdr-t); font-weight:700; font-size:10px; letter-spacing:0.12em; text-transform:uppercase; padding:3px 7px; display:flex; align-items:center; justify-content:space-between; }
+.abox-hdr small { font-size:8px; font-weight:400; color:#aaa; letter-spacing:0.04em; text-transform:none; }
+.abox-body { flex:1; /* giant blank write area for Pencil */ padding:4px; position:relative; }
+/* subtle guide line at bottom */
+.abox-body::after { content:''; position:absolute; bottom:8px; left:8px; right:8px; border-bottom:1px dashed #e0e0e0; pointer-events:none; }
+
+/* SEARCH */
+.search-row { display:grid; grid-template-columns:90px repeat(3,1fr) 80px; gap:4px; align-items:center; padding:3px 6px; border-bottom:1px solid #eee; }
+.search-row:last-child { border-bottom:none; }
+.search-lbl { font-weight:700; font-size:10px; color:var(--mid); }
+.wbox { border:1px solid #bbb; min-height:22px; background:#fff; }
+
+/* PAR */
+.par-row { display:flex; align-items:center; gap:8px; padding:4px 7px; border-bottom:1px solid #eee; flex-wrap:wrap; }
+.par-lbl { font-weight:700; font-size:10px; letter-spacing:0.1em; color:#333; flex-shrink:0; }
+.r-grp { display:flex; gap:10px; flex-wrap:wrap; }
+.r-item { display:flex; align-items:center; gap:3px; cursor:pointer; }
+.r-item input { accent-color:#000; width:14px; height:14px; pointer-events:auto; }
+.r-item span { font-size:11px; font-family:var(--mono); }
+
+/* VICTIMS */
+.v-grid { display:grid; grid-template-columns:1fr 1fr; gap:4px; padding:4px; }
+.v-box { border:1px solid #bbb; min-height:36px; padding:3px 5px; }
+.v-title { font-weight:700; font-size:9px; letter-spacing:0.1em; text-transform:uppercase; color:#666; border-bottom:1px solid #ddd; padding-bottom:2px; margin-bottom:3px; }
+
+/* BOTTOM */
+.bottom-bar { display:grid; grid-template-columns:1fr 1fr 200px; gap:5px; margin-top:5px; }
+.bb { border:1.5px solid var(--black); }
+.bb-hdr { background:var(--shdr); color:var(--shdr-t); font-weight:700; font-size:10px; letter-spacing:0.15em; text-transform:uppercase; padding:3px 8px; }
+.bb-body { min-height:52px; padding:4px 7px; }
+
+.ifield { border:none; border-bottom:1px solid #bbb; outline:none; font-family:var(--mono); font-size:11px; background:transparent; width:100%; padding:1px 3px; pointer-events:auto; color:var(--black); }
+
+@media print {
+  body { background:#fff; }
+  .page { box-shadow:none; margin:0; width:100%; padding-bottom:10px; }
+  #toolbar { display:none; }
+  #draw-canvas { display:none; }
+}
+</style>
+</head>
+<body>
+<div class="page" id="page">
+<canvas id="draw-canvas"></canvas>
+
+<div class="form-title">Structure Fire Tactical Worksheet</div>
+
+<!-- HEADER -->
+<div class="hdr-grid">
+  <div class="hdr-cell">
+    <span class="lbl">Incident Name</span><div class="wline"></div>
+    <span class="lbl" style="margin-top:3px">Com. Channel</span><div class="wline"></div>
+  </div>
+  <div class="hdr-cell">
+    <span class="lbl">Incident Date</span><div class="wline"></div>
+    <span class="lbl" style="margin-top:3px">TAC Channel</span><div class="wline"></div>
+  </div>
+  <div class="hdr-cell">
+    <span class="lbl">Incident Time</span><div class="wline"></div>
+  </div>
+  <div class="hdr-cell">
+    <span class="lbl">Incident Location</span>
+    <div class="wline"></div><div class="wline" style="margin-top:4px"></div>
+  </div>
+</div>
+
+<div class="sizeup-bar">
+  <span class="lbl">Size-Up: Facts / Probabilities / Own Situation / Decision / Plan —</span>
+  <div class="wline" style="flex:1"></div>
+</div>
+
+<div class="times-bar">
+  <div class="time-cell"><span class="lbl">Size Up</span><div class="wline"></div></div>
+  <div class="time-cell"><span class="lbl">Water on Fire</span><div class="wline"></div></div>
+  <div class="time-cell"><span class="lbl">Knock-Down</span><div class="wline"></div></div>
+  <div class="time-cell"><span class="lbl">Search</span><div class="wline"></div></div>
+  <div class="time-cell"><span class="lbl">Search Complete</span><div class="wline"></div></div>
+  <div class="time-cell"><span class="lbl">Under Control / Suppression Complete</span><div class="wline"></div></div>
+</div>
+
+<!-- LEGEND -->
+<div class="legend">
+  <div class="sec-hdr" style="padding:3px 8px;">Pencil Annotation Legend</div>
+  <div class="legend-body">
+    <div class="leg-item">
+      <span class="leg-sym" style="text-decoration:line-through;color:#cc0000;">E31</span>
+      <div class="leg-desc"><strong>Strikethrough</strong> — Unit moved / deployed out of staging</div>
+    </div>
+    <div class="leg-item">
+      <span class="leg-sym" style="color:#007700;">⊙ E31</span>
+      <div class="leg-desc"><strong>Circle</strong> — Division/Group supervisor · main point of contact</div>
+    </div>
+    <div class="leg-item">
+      <span class="leg-sym" style="text-decoration:line-through;color:#e8a000;">PG&amp;E</span>
+      <div class="leg-desc"><strong>Line-through</strong> — Resource called / ordered / en route</div>
+    </div>
+    <div class="leg-item">
+      <span class="leg-sym" style="color:#555;font-size:18px;">✕</span>
+      <div class="leg-desc"><strong>X mark</strong> — Was staged here, now reassigned elsewhere</div>
+    </div>
+  </div>
+</div>
+
+<!-- MAIN 3-COL -->
+<div class="main-grid">
+
+  <!-- COL 1: STAGING -->
+  <div>
+    <div class="sec">
+      <div class="sec-hdr">1st Alarm — Staging <small>WRITE UNIT · CROSS OUT WHEN DEPLOYED · NOTE TIME</small></div>
+      <div class="col-hdr"><span>UNIT</span><span>UNIT NAME / ASSIGNMENT</span><span>TIME OUT</span></div>
+      <div class="s-row"><span class="s-tag">E –</span><div class="s-name"></div><div class="s-time">__:__</div></div>
+      <div class="s-row"><span class="s-tag">E –</span><div class="s-name"></div><div class="s-time">__:__</div></div>
+      <div class="s-row"><span class="s-tag">E –</span><div class="s-name"></div><div class="s-time">__:__</div></div>
+      <div class="s-row"><span class="s-tag">E –</span><div class="s-name"></div><div class="s-time">__:__</div></div>
+      <div class="s-row"><span class="s-tag">E –</span><div class="s-name"></div><div class="s-time">__:__</div></div>
+      <div class="s-row"><span class="s-tag">T –</span><div class="s-name"></div><div class="s-time">__:__</div></div>
+      <div class="s-row"><span class="s-tag">BC –</span><div class="s-name"></div><div class="s-time">__:__</div></div>
+      <div class="s-row"><span class="s-tag">R/E –</span><div class="s-name"></div><div class="s-time">__:__</div></div>
+    </div>
+
+    <div class="sec">
+      <div class="sec-hdr a2">2nd Alarm — Stage @ <small>TIME ____</small></div>
+      <div class="col-hdr"><span>UNIT</span><span>UNIT NAME / ASSIGNMENT</span><span>TIME OUT</span></div>
+      <div class="s-row"><span class="s-tag">E –</span><div class="s-name"></div><div class="s-time">__:__</div></div>
+      <div class="s-row"><span class="s-tag">E –</span><div class="s-name"></div><div class="s-time">__:__</div></div>
+      <div class="s-row"><span class="s-tag">T –</span><div class="s-name"></div><div class="s-time">__:__</div></div>
+      <div class="s-row"><span class="s-tag">BC –</span><div class="s-name"></div><div class="s-time">__:__</div></div>
+      <div class="s-row"><span class="s-tag">MEDIC</span><div class="s-name"></div><div class="s-time">__:__</div></div>
+      <div class="s-row"><span class="s-tag">BS –</span><div class="s-name"></div><div class="s-time">__:__</div></div>
+    </div>
+
+    <div class="sec">
+      <div class="sec-hdr a3">3rd Alarm <small>TIME ____</small></div>
+      <div class="col-hdr"><span>UNIT</span><span>UNIT NAME / ASSIGNMENT</span><span>TIME OUT</span></div>
+      <div class="s-row"><span class="s-tag">E –</span><div class="s-name"></div><div class="s-time">__:__</div></div>
+      <div class="s-row"><span class="s-tag">E –</span><div class="s-name"></div><div class="s-time">__:__</div></div>
+      <div class="s-row"><span class="s-tag">T –</span><div class="s-name"></div><div class="s-time">__:__</div></div>
+      <div class="s-row"><span class="s-tag">BC –</span><div class="s-name"></div><div class="s-time">__:__</div></div>
+    </div>
+  </div>
+
+  <!-- COL 2: ACTIONS -->
+  <div>
+    <div class="sec" style="margin-bottom:5px">
+      <div class="sec-hdr">Mode</div>
+      <div class="clist c2col">
+        <label class="crow"><input type="checkbox"><span>Offensive</span></label>
+        <label class="crow"><input type="checkbox"><span>Defensive</span></label>
+        <label class="crow"><input type="checkbox"><span>Combination</span></label>
+      </div>
+    </div>
+
+    <div class="sec" style="margin-bottom:5px">
+      <div class="sec-hdr">360 / Size-Up Actions</div>
+      <div class="clist c2col">
+        <label class="crow"><input type="checkbox"><span>360</span></label>
+        <label class="crow"><input type="checkbox"><span>360 Update</span></label>
+        <label class="crow"><input type="checkbox"><span>I – Incident Command</span></label>
+        <label class="crow"><input type="checkbox"><span>W – Water Supply</span></label>
+        <label class="crow"><input type="checkbox"><span>A – Auto/Sprinkler/Standpipe</span></label>
+        <label class="crow"><input type="checkbox"><span>S – Search (pri/sec)</span></label>
+        <label class="crow"><input type="checkbox"><span>B – Back-Up Line</span></label>
+        <label class="crow"><input type="checkbox"><span>A – Attack Line (1¾/2½)</span></label>
+        <label class="crow"><input type="checkbox"><span>O – Out Team</span></label>
+        <label class="crow"><input type="checkbox"><span>V – Ventilation</span></label>
+        <label class="crow"><input type="checkbox"><span>E – Exposures</span></label>
+        <label class="crow"><input type="checkbox"><span>R – RIC Team</span></label>
+        <label class="crow"><input type="checkbox"><span>R – Rehab</span></label>
+        <label class="crow"><input type="checkbox"><span>O – Overhaul</span></label>
+        <label class="crow"><input type="checkbox"><span>S – Salvage</span></label>
+        <label class="crow"><input type="checkbox"><span>S – Support</span></label>
+        <label class="crow"><input type="checkbox"><span>C – Conditions</span></label>
+        <label class="crow"><input type="checkbox"><span>U – Utilities (Elec/Solar/ESS/Gas)</span></label>
+        <label class="crow"><input type="checkbox"><span>R – Red Cross</span></label>
+        <label class="crow"><input type="checkbox"><span>D – DIV/GRPS</span></label>
+      </div>
+    </div>
+
+    <div class="sec" style="margin-bottom:5px">
+      <div class="sec-hdr">AMR / Notifications <small>Line-through = called/ordered</small></div>
+      <div class="par-row">
+        <span class="par-lbl">PAR:</span>
+        <div class="r-grp">
+          <label class="r-item"><input type="radio" name="par"><span>15min</span></label>
+          <label class="r-item"><input type="radio" name="par"><span>30min</span></label>
+          <label class="r-item"><input type="radio" name="par"><span>45min</span></label>
+          <label class="r-item"><input type="radio" name="par"><span>60min</span></label>
+        </div>
+      </div>
+      <div class="clist c2col">
+        <label class="crow"><input type="checkbox"><span>A – AMR</span></label>
+        <label class="crow"><input type="checkbox"><span>M – MCI 1/2/3</span></label>
+        <label class="crow"><input type="checkbox"><span>P – PD</span></label>
+        <label class="crow"><input type="checkbox"><span>H – Hazmat</span></label>
+        <label class="crow"><input type="checkbox"><span>I – Investigator</span></label>
+        <label class="crow"><input type="checkbox"><span>B – Board-Up Co.</span></label>
+        <label class="crow"><input type="checkbox"><span>I – Incident Clock</span></label>
+        <label class="crow"><input type="checkbox"><span>A – Air Unit</span></label>
+        <label class="crow"><input type="checkbox"><span>N – Notifications</span></label>
+        <label class="crow"><input type="checkbox"><span>P – PARS</span></label>
+        <label class="crow"><input type="checkbox"><span>P – PIO</span></label>
+        <label class="crow"><input type="checkbox"><span>H – HELO</span></label>
+        <label class="crow"><input type="checkbox"><span>Z – ZONES Hot/Cold</span></label>
+        <label class="crow"><input type="checkbox"><span>PG&amp;E</span></label>
+      </div>
+    </div>
+
+    <div class="sec" style="margin-bottom:5px">
+      <div class="sec-hdr solar">☀ Solar / ESS / Battery</div>
+      <div class="clist c2col">
+        <label class="crow"><input type="checkbox"><span>Panels / Roof</span></label>
+        <label class="crow"><input type="checkbox"><span>String / Shut-off</span></label>
+        <label class="crow"><input type="checkbox"><span>Micro-Invertor</span></label>
+        <label class="crow"><input type="checkbox"><span>ESS / Battery</span></label>
+        <label class="crow"><input type="checkbox"><span>Venting / Fire</span></label>
+        <label class="crow"><input type="checkbox"><span>Shut-off</span></label>
+      </div>
+      <div style="padding:3px 7px;display:flex;align-items:center;gap:6px;border-top:1px solid #ddd;">
+        <span class="lbl">Location:</span><div class="wline" style="flex:1"></div>
+      </div>
+    </div>
+
+    <div class="sec">
+      <div class="sec-hdr mayday">⚠ MAYDAY PROCEDURE</div>
+      <div class="clist c2col">
+        <label class="crow"><input type="checkbox"><span>Hold radio traffic</span></label>
+        <label class="crow"><input type="checkbox"><span>Acknowledge Mayday</span></label>
+        <label class="crow"><input type="checkbox"><span>Contact downed FF</span></label>
+        <label class="crow"><input type="checkbox"><span>Activate PASS</span></label>
+        <label class="crow"><input type="checkbox"><span>Flashlight</span></label>
+        <label class="crow"><input type="checkbox"><span>FF survival techniques</span></label>
+        <label class="crow"><input type="checkbox"><span>Reposition closest</span></label>
+        <label class="crow"><input type="checkbox"><span>Deploy RIC &amp; RIC Grp. S</span></label>
+        <label class="crow"><input type="checkbox"><span>VEIS</span></label>
+        <label class="crow"><input type="checkbox"><span>Call 2 additional alarms</span></label>
+        <label class="crow"><input type="checkbox"><span>Secondary TAC/PAR</span></label>
+        <label class="crow"><input type="checkbox"><span>Establish medical/Helo</span></label>
+      </div>
+      <div style="padding:4px 6px;border-top:1px solid #555;display:grid;grid-template-columns:50px 1fr 55px 1fr 60px 1fr;gap:4px;align-items:center;">
+        <span class="lbl">P–P</span><div class="wline"></div>
+        <span class="lbl">H–HELO</span><div class="wline"></div>
+        <span class="lbl">Z–ZONES</span><div class="wline"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- COL 3: ASSIGNMENTS -->
+  <div>
+    <div class="sec" style="margin-bottom:5px">
+      <div class="sec-hdr">Unit Assignments <small>Write unit · Circle = Supervisor (main POC)</small></div>
+      <div class="assign-grid">
+
+        <div class="abox wide">
+          <div class="abox-hdr">IC / Command <small>Write IC name · circle for command post</small></div>
+          <div class="abox-body"></div>
+        </div>
+
+        <div class="abox">
+          <div class="abox-hdr">Attack / Fire Attack</div>
+          <div class="abox-body"></div>
+        </div>
+        <div class="abox">
+          <div class="abox-hdr">Rescue / Search</div>
+          <div class="abox-body"></div>
+        </div>
+
+        <div class="abox">
+          <div class="abox-hdr">Water Supply</div>
+          <div class="abox-body"></div>
+        </div>
+        <div class="abox">
+          <div class="abox-hdr">Ventilation</div>
+          <div class="abox-body"></div>
+        </div>
+
+        <div class="abox">
+          <div class="abox-hdr">Exposure</div>
+          <div class="abox-body"></div>
+        </div>
+        <div class="abox">
+          <div class="abox-hdr">Salvage / Overhaul</div>
+          <div class="abox-body"></div>
+        </div>
+
+        <div class="abox">
+          <div class="abox-hdr">RIC / RIC Group</div>
+          <div class="abox-body"></div>
+        </div>
+        <div class="abox">
+          <div class="abox-hdr">Rehab</div>
+          <div class="abox-body"></div>
+        </div>
+
+        <div class="abox wide">
+          <div class="abox-hdr">Division / Group <small>Write div name + assigned units · circle supervisor</small></div>
+          <div class="abox-body"></div>
+        </div>
+
+        <div class="abox wide">
+          <div class="abox-hdr">Notes / Other</div>
+          <div class="abox-body"></div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- SEARCH + VICTIMS -->
+    <div class="sec" style="margin-bottom:5px">
+      <div class="sec-hdr">Search</div>
+      <div class="search-row">
+        <span class="search-lbl">Primary 1st</span>
+        <div class="wbox"></div><div class="wbox"></div><div class="wbox"></div>
+        <label class="crow" style="border:none;padding:0 4px;"><input type="checkbox"><span>All Clear</span></label>
+      </div>
+      <div class="search-row">
+        <span class="search-lbl">Secondary</span>
+        <div class="wbox"></div><div class="wbox"></div><div class="wbox"></div>
+      </div>
+      <div class="sec-hdr" style="margin-top:2px">Victims</div>
+      <div class="v-grid">
+        <div class="v-box"><div class="v-title">Victim #1</div><div class="wline"></div></div>
+        <div class="v-box"><div class="v-title">Victim #2</div><div class="wline"></div></div>
+        <div class="v-box"><div class="v-title">Victim #3</div><div class="wline"></div></div>
+        <div class="v-box"><div class="v-title">Victim #4</div><div class="wline"></div></div>
+      </div>
+    </div>
+
+    <!-- BOTTOM -->
+    <div class="bottom-bar">
+      <div class="bb"><div class="bb-hdr">Objectives</div><div class="bb-body"></div></div>
+      <div class="bb"><div class="bb-hdr">Resources / Staging</div><div class="bb-body"></div></div>
+      <div class="bb">
+        <div class="bb-hdr">Command</div>
+        <div class="bb-body">
+          <span class="lbl">IC</span><div class="wline" style="margin-bottom:8px"></div>
+          <span class="lbl">CP Location</span><div class="wline"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- end main-grid -->
+</div><!-- end page -->
+
+<!-- TOOLBAR -->
+<div id="toolbar">
+  <span id="mode-badge">📋 Form</span>
+  <div class="tsep"></div>
+  <button class="tbtn active" id="btn-form" title="Form mode — tap checkboxes">📋</button>
+  <button class="tbtn" id="btn-pen" title="Draw — Apple Pencil">✏️</button>
+  <button class="tbtn" id="btn-eraser" title="Eraser">🧹</button>
+  <div class="tsep"></div>
+  <span class="tlabel">Size</span>
+  <input type="range" id="stroke-size" min="1" max="30" value="3">
+  <div class="tsep"></div>
+  <div class="swatch sel" style="background:#000" data-c="#000"></div>
+  <div class="swatch" style="background:#cc0000" data-c="#cc0000"></div>
+  <div class="swatch" style="background:#1a1aff" data-c="#1a1aff"></div>
+  <div class="swatch" style="background:#007700" data-c="#007700"></div>
+  <div class="swatch" style="background:#e8a000" data-c="#e8a000"></div>
+  <input type="color" id="color-input" value="#000000" title="Custom color">
+  <div class="tsep"></div>
+  <button class="tbtn" id="btn-undo" title="Undo last stroke">↩️</button>
+  <button class="tbtn" id="btn-clear" title="Clear all annotations">🗑️</button>
+  <div class="tsep"></div>
+  <button class="tbtn" id="btn-print" title="Print / Save PDF">🖨️</button>
+</div>
+
+<script>
+const page = document.getElementById('page');
+const canvas = document.getElementById('draw-canvas');
+const ctx = canvas.getContext('2d');
+
+function resizeCanvas() {
+  const r = page.getBoundingClientRect();
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = r.width * dpr;
+  canvas.height = r.height * dpr;
+  canvas.style.width = r.width + 'px';
+  canvas.style.height = r.height + 'px';
+  ctx.scale(dpr, dpr);
+  redraw();
+}
+
+let strokes = [];
+let cur = null;
+let drawing = false;
+let mode = 'form';
+let penColor = '#000000';
+let penSize = 3;
+let eraserSize = 30;
+
+function redraw() {
+  const r = page.getBoundingClientRect();
+  ctx.clearRect(0, 0, r.width, r.height);
+  for (const s of strokes) {
+    if (s.pts.length < 2) continue;
+    ctx.beginPath();
+    ctx.strokeStyle = s.color;
+    ctx.lineWidth = s.size;
+    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    ctx.moveTo(s.pts[0].x, s.pts[0].y);
+    for (let i = 1; i < s.pts.length; i++) ctx.lineTo(s.pts[i].x, s.pts[i].y);
+    ctx.stroke();
+  }
+}
+
+canvas.addEventListener('pointerdown', e => {
+  if (mode === 'form') return;
+  if (e.pointerType === 'touch') return; // palm rejection
+  e.preventDefault();
+  drawing = true;
+  const pt = { x: e.offsetX, y: e.offsetY };
+  if (mode === 'pen') {
+    cur = { color: penColor, size: penSize, pts: [pt] };
+  } else {
+    cur = { eraser: true, pts: [pt] };
+    eraseAt(pt.x, pt.y);
+  }
+}, { passive: false });
+
+canvas.addEventListener('pointermove', e => {
+  if (!drawing || mode === 'form') return;
+  if (e.pointerType === 'touch') return;
+  e.preventDefault();
+  const pt = { x: e.offsetX, y: e.offsetY };
+  if (mode === 'pen' && cur) {
+    cur.pts.push(pt);
+    const pts = cur.pts;
+    if (pts.length >= 2) {
+      ctx.beginPath();
+      ctx.strokeStyle = cur.color; ctx.lineWidth = cur.size;
+      ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+      ctx.moveTo(pts[pts.length-2].x, pts[pts.length-2].y);
+      ctx.lineTo(pt.x, pt.y); ctx.stroke();
+    }
+  } else if (mode === 'eraser') {
+    eraseAt(pt.x, pt.y);
+    if (cur) cur.pts.push(pt);
+  }
+}, { passive: false });
+
+canvas.addEventListener('pointerup', () => {
+  if (!drawing) return;
+  drawing = false;
+  if (mode === 'pen' && cur) strokes.push(cur);
+  else if (mode === 'eraser') redraw();
+  cur = null;
+});
+canvas.addEventListener('pointercancel', () => { drawing = false; cur = null; });
+
+function eraseAt(x, y) {
+  const r2 = (eraserSize/2)**2;
+  strokes = strokes.map(s => ({ ...s, pts: s.pts.filter(p => (p.x-x)**2+(p.y-y)**2 > r2) })).filter(s => s.pts.length > 1);
+  ctx.save();
+  ctx.globalCompositeOperation = 'destination-out';
+  ctx.beginPath(); ctx.arc(x, y, eraserSize/2, 0, Math.PI*2); ctx.fill();
+  ctx.restore();
+}
+
+function setMode(m) {
+  mode = m;
+  canvas.style.pointerEvents = m === 'form' ? 'none' : 'all';
+  ['form','pen','eraser'].forEach(id => document.getElementById('btn-'+id).classList.toggle('active', id===m));
+  const badge = document.getElementById('mode-badge');
+  badge.textContent = m === 'form' ? '📋 Form' : m === 'pen' ? '✏ Draw' : '🧹 Erase';
+  canvas.style.cursor = m === 'pen' ? 'crosshair' : m === 'eraser' ? 'cell' : 'default';
+}
+
+document.getElementById('btn-form').addEventListener('click', () => setMode('form'));
+document.getElementById('btn-pen').addEventListener('click', () => setMode('pen'));
+document.getElementById('btn-eraser').addEventListener('click', () => setMode('eraser'));
+document.getElementById('btn-undo').addEventListener('click', () => { strokes.pop(); redraw(); });
+document.getElementById('btn-clear').addEventListener('click', () => {
+  if (!confirm('Clear all Pencil annotations?')) return;
+  strokes = [];
+  const r = page.getBoundingClientRect();
+  ctx.clearRect(0, 0, r.width, r.height);
+});
+document.getElementById('btn-print').addEventListener('click', () => window.print());
+
+document.getElementById('stroke-size').addEventListener('input', e => {
+  penSize = parseInt(e.target.value);
+  eraserSize = penSize * 5;
+});
+
+document.getElementById('color-input').addEventListener('input', e => {
+  penColor = e.target.value;
+  document.querySelectorAll('.swatch').forEach(s => s.classList.remove('sel'));
+  setMode('pen');
+});
+
+document.querySelectorAll('.swatch').forEach(sw => {
+  sw.addEventListener('click', () => {
+    penColor = sw.dataset.c;
+    document.getElementById('color-input').value = penColor;
+    document.querySelectorAll('.swatch').forEach(s => s.classList.remove('sel'));
+    sw.classList.add('sel');
+    setMode('pen');
+  });
+});
+
+setMode('form');
+resizeCanvas();
+window.addEventListener('resize', resizeCanvas);
+if (screen.orientation && screen.orientation.lock) screen.orientation.lock('landscape').catch(()=>{});
+</script>
+</body>
+</html>

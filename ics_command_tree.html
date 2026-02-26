@@ -1,0 +1,642 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>ICS Command Tree</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: #f5f0e8;
+    font-family: 'Helvetica Neue', sans-serif;
+    overflow: hidden;
+    width: 100vw;
+    height: 100vh;
+    touch-action: none;
+  }
+
+  #app {
+    position: relative;
+    width: 100vw;
+    height: 100vh;
+  }
+
+  /* SVG tree sits at bottom */
+  #tree-svg {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+  }
+
+  /* Drawing canvas on top */
+  #draw-canvas {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%;
+    height: 100%;
+    touch-action: none;
+    cursor: crosshair;
+  }
+
+  /* TOOLBAR */
+  #toolbar {
+    position: fixed;
+    top: 12px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(20,20,20,0.88);
+    border-radius: 50px;
+    padding: 8px 14px;
+    z-index: 100;
+    backdrop-filter: blur(12px);
+    box-shadow: 0 4px 24px rgba(0,0,0,0.35);
+  }
+
+  .tool-btn {
+    background: transparent;
+    border: none;
+    color: #ccc;
+    font-size: 18px;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+    position: relative;
+  }
+
+  .tool-btn:hover, .tool-btn.active {
+    background: rgba(255,255,255,0.15);
+    color: #fff;
+  }
+
+  .tool-btn.active {
+    background: #e8400c;
+    color: #fff;
+  }
+
+  .tool-sep {
+    width: 1px;
+    height: 24px;
+    background: rgba(255,255,255,0.2);
+    margin: 0 2px;
+  }
+
+  #color-picker {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    border: 2px solid rgba(255,255,255,0.3);
+    cursor: pointer;
+    padding: 0;
+    background: none;
+    overflow: hidden;
+  }
+
+  #stroke-slider {
+    width: 70px;
+    accent-color: #e8400c;
+    cursor: pointer;
+  }
+
+  .tool-label {
+    font-size: 10px;
+    color: #888;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin-right: 2px;
+  }
+
+  /* Page title */
+  #page-title {
+    position: fixed;
+    top: 68px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 11px;
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    color: #aaa;
+    pointer-events: none;
+    white-space: nowrap;
+  }
+
+  /* Node labels */
+  .node-label {
+    font-family: 'Helvetica Neue', sans-serif;
+    fill: #222;
+    user-select: none;
+  }
+
+  .level-0 { font-size: 15px; font-weight: 700; letter-spacing: 0.12em; }
+  .level-1 { font-size: 12px; font-weight: 600; letter-spacing: 0.08em; }
+  .level-2 { font-size: 11px; font-weight: 500; }
+  .level-3 { font-size: 10px; font-weight: 400; }
+
+  /* Undo indicator */
+  #undo-count {
+    position: fixed;
+    bottom: 16px;
+    right: 20px;
+    font-size: 11px;
+    color: #999;
+    pointer-events: none;
+  }
+
+  /* Mode indicator */
+  #mode-label {
+    position: fixed;
+    bottom: 16px;
+    left: 20px;
+    font-size: 11px;
+    color: #999;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    pointer-events: none;
+  }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- SVG TREE -->
+  <svg id="tree-svg" xmlns="http://www.w3.org/2000/svg"></svg>
+
+  <!-- DRAW CANVAS -->
+  <canvas id="draw-canvas"></canvas>
+
+  <!-- TOOLBAR -->
+  <div id="toolbar">
+    <button class="tool-btn active" id="btn-pen" title="Pen">✏️</button>
+    <button class="tool-btn" id="btn-eraser" title="Eraser">🧹</button>
+    <div class="tool-sep"></div>
+    <span class="tool-label">Size</span>
+    <input type="range" id="stroke-slider" min="1" max="24" value="3">
+    <div class="tool-sep"></div>
+    <span class="tool-label">Color</span>
+    <input type="color" id="color-picker" value="#1a1aff">
+    <div class="tool-sep"></div>
+    <button class="tool-btn" id="btn-undo" title="Undo">↩️</button>
+    <button class="tool-btn" id="btn-clear" title="Clear all">🗑️</button>
+    <div class="tool-sep"></div>
+    <button class="tool-btn" id="btn-export" title="Save image">💾</button>
+  </div>
+
+  <div id="page-title">ICS Command Tree — Structure Fire</div>
+  <div id="mode-label">✏ Pen</div>
+  <div id="undo-count"></div>
+</div>
+
+<script>
+// ─── CONFIG ────────────────────────────────────────────────────────────────
+
+const TREE = {
+  label: 'IC / COMMAND',
+  children: [
+    {
+      label: 'BRANCH 1',
+      children: [
+        { label: 'DIV / GROUP A', children: [{ label: 'Group 1' }, { label: 'Group 2' }] },
+        { label: 'DIV / GROUP B', children: [{ label: 'Group 1' }, { label: 'Group 2' }] },
+      ]
+    },
+    {
+      label: 'BRANCH 2',
+      children: [
+        { label: 'DIV / GROUP C', children: [{ label: 'Group 1' }, { label: 'Group 2' }] },
+        { label: 'DIV / GROUP D', children: [{ label: 'Group 1' }, { label: 'Group 2' }] },
+      ]
+    },
+    {
+      label: 'BRANCH 3',
+      children: [
+        { label: 'DIV / GROUP E', children: [{ label: 'Group 1' }, { label: 'Group 2' }] },
+        { label: 'DIV / GROUP F', children: [{ label: 'Group 1' }, { label: 'Group 2' }] },
+      ]
+    },
+  ]
+};
+
+// ─── SVG TREE LAYOUT ───────────────────────────────────────────────────────
+
+const svg = document.getElementById('tree-svg');
+
+function getSize() {
+  return { W: window.innerWidth, H: window.innerHeight };
+}
+
+const NODE_W = 130;
+const NODE_H = 36;
+const LEVEL_H = [0, 0.18, 0.42, 0.66, 0.86]; // fraction of H for each level
+
+function countLeaves(node) {
+  if (!node.children || node.children.length === 0) return 1;
+  return node.children.reduce((s, c) => s + countLeaves(c), 0);
+}
+
+function assignX(node, startFrac, endFrac) {
+  node.xFrac = (startFrac + endFrac) / 2;
+  if (!node.children) return;
+  const total = countLeaves(node);
+  let cur = startFrac;
+  for (const child of node.children) {
+    const share = countLeaves(child) / total;
+    assignX(child, cur, cur + share);
+    cur += share;
+  }
+}
+
+function renderTree() {
+  const { W, H } = getSize();
+  svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+  svg.innerHTML = '';
+
+  // background grid (subtle)
+  const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
+  defs.innerHTML = `
+    <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+      <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#ddd" stroke-width="0.5"/>
+    </pattern>
+  `;
+  svg.appendChild(defs);
+
+  const bg = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+  bg.setAttribute('width', W); bg.setAttribute('height', H);
+  bg.setAttribute('fill', 'url(#grid)');
+  svg.appendChild(bg);
+
+  const MARGIN = 60;
+  const usableW = W - MARGIN * 2;
+
+  assignX(TREE, 0, 1);
+
+  function nodeX(node) { return MARGIN + node.xFrac * usableW; }
+  function nodeY(level) { return LEVEL_H[level] * (H - 80) + 60; }
+
+  function drawNode(node, level) {
+    const x = nodeX(node);
+    const y = nodeY(level);
+    node._x = x; node._y = y;
+
+    // Box
+    const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+    const boxW = level === 0 ? 160 : level === 1 ? 140 : NODE_W;
+    const boxH = NODE_H;
+    const boxX = x - boxW / 2;
+    const boxY = y - boxH / 2;
+
+    rect.setAttribute('x', boxX);
+    rect.setAttribute('y', boxY);
+    rect.setAttribute('width', boxW);
+    rect.setAttribute('height', boxH);
+    rect.setAttribute('rx', level === 0 ? 6 : 3);
+
+    const fills = ['#1a1a2e', '#16213e', '#0f3460', '#e8e8e8'];
+    const strokes = ['#e8400c', '#f5a623', '#4a9eff', '#aaa'];
+    rect.setAttribute('fill', fills[level] || '#e8e8e8');
+    rect.setAttribute('stroke', strokes[level] || '#aaa');
+    rect.setAttribute('stroke-width', level === 0 ? 2.5 : 1.5);
+    svg.appendChild(rect);
+
+    // Label
+    const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+    text.setAttribute('x', x);
+    text.setAttribute('y', y + 1);
+    text.setAttribute('text-anchor', 'middle');
+    text.setAttribute('dominant-baseline', 'middle');
+    text.setAttribute('class', `node-label level-${level}`);
+
+    const textColors = ['#fff', '#fff', '#fff', '#333'];
+    text.setAttribute('fill', textColors[level] || '#333');
+
+    text.textContent = node.label;
+    svg.appendChild(text);
+
+    // Draw line to parent
+    if (node._parentX !== undefined) {
+      const line = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      const px = node._parentX;
+      const py = node._parentY + NODE_H / 2;
+      const cy = y - NODE_H / 2;
+      const midY = (py + cy) / 2;
+      line.setAttribute('d', `M ${px} ${py} C ${px} ${midY}, ${x} ${midY}, ${x} ${cy}`);
+      line.setAttribute('fill', 'none');
+      line.setAttribute('stroke', strokes[level - 1] || '#999');
+      line.setAttribute('stroke-width', level === 1 ? 2.5 : level === 2 ? 2 : 1.5);
+      line.setAttribute('stroke-dasharray', level === 3 ? '6,4' : 'none');
+      svg.insertBefore(line, svg.firstChild.nextSibling); // behind nodes
+    }
+
+    if (node.children) {
+      for (const child of node.children) {
+        child._parentX = x;
+        child._parentY = y;
+        drawNode(child, level + 1);
+      }
+    }
+  }
+
+  drawNode(TREE, 0);
+
+  // Level labels on left edge
+  const levelNames = ['Level 1: IC', 'Level 2: Branch', 'Level 3: Division/Group', 'Level 4: Groups'];
+  levelNames.forEach((name, i) => {
+    const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+    text.setAttribute('x', 8);
+    text.setAttribute('y', nodeY(i));
+    text.setAttribute('dominant-baseline', 'middle');
+    text.setAttribute('font-size', 9);
+    text.setAttribute('fill', '#bbb');
+    text.setAttribute('font-family', 'Helvetica Neue, sans-serif');
+    text.setAttribute('letter-spacing', '0.05em');
+    text.textContent = name;
+    svg.appendChild(text);
+
+    // Dashed guide line
+    const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+    line.setAttribute('x1', 0); line.setAttribute('y1', nodeY(i));
+    line.setAttribute('x2', W); line.setAttribute('y2', nodeY(i));
+    line.setAttribute('stroke', '#e0e0e0'); line.setAttribute('stroke-width', 0.5);
+    line.setAttribute('stroke-dasharray', '4,8');
+    svg.insertBefore(line, svg.firstChild);
+  });
+}
+
+// ─── CANVAS DRAWING ────────────────────────────────────────────────────────
+
+const canvas = document.getElementById('draw-canvas');
+const ctx = canvas.getContext('2d');
+
+let strokes = []; // each stroke = {color, width, points[]}
+let currentStroke = null;
+let isDrawing = false;
+let mode = 'pen'; // 'pen' | 'eraser'
+let penColor = '#1a1aff';
+let penWidth = 3;
+let eraserWidth = 32;
+
+function resizeCanvas() {
+  const { W, H } = getSize();
+  // Save existing drawing
+  const img = canvas.toDataURL();
+  canvas.width = W;
+  canvas.height = H;
+  // Restore
+  if (strokes.length > 0) redraw();
+}
+
+function redraw() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  for (const stroke of strokes) {
+    if (stroke.points.length < 2) continue;
+    ctx.beginPath();
+    ctx.strokeStyle = stroke.color;
+    ctx.lineWidth = stroke.width;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.moveTo(stroke.points[0].x, stroke.points[0].y);
+    for (let i = 1; i < stroke.points.length; i++) {
+      ctx.lineTo(stroke.points[i].x, stroke.points[i].y);
+    }
+    ctx.stroke();
+  }
+}
+
+function getPos(e) {
+  const rect = canvas.getBoundingClientRect();
+  if (e.touches) {
+    // Find Apple Pencil touch (type === 'stylus') or first touch
+    let touch = null;
+    for (let t of e.touches) {
+      if (t.touchType === 'stylus') { touch = t; break; }
+    }
+    if (!touch) touch = e.touches[0];
+    return { x: touch.clientX - rect.left, y: touch.clientY - rect.top, pressure: touch.force || 0.5 };
+  }
+  return { x: e.clientX - rect.left, y: e.clientY - rect.top, pressure: 0.5 };
+}
+
+function isStylusOrMouse(e) {
+  if (e.pointerType === 'touch' && !e.isPrimary) return false;
+  // Accept: stylus, mouse, or pointer with no touch type
+  if (e.pointerType === 'stylus') return true;
+  if (e.pointerType === 'mouse') return true;
+  if (e.pointerType === 'pen') return true;
+  // For touch events (fallback), only accept if it looks like stylus
+  if (e.touches) {
+    for (let t of e.touches) {
+      if (t.touchType === 'stylus') return true;
+    }
+    // If no touches or only finger, skip — palm rejection
+    return false;
+  }
+  return true;
+}
+
+// Pointer events (best for Apple Pencil)
+canvas.addEventListener('pointerdown', e => {
+  // Palm rejection: ignore finger touches (pointerType === 'touch')
+  if (e.pointerType === 'touch') return;
+  e.preventDefault();
+  isDrawing = true;
+  const pos = { x: e.offsetX, y: e.offsetY };
+
+  if (mode === 'eraser') {
+    currentStroke = { color: 'eraser', width: eraserWidth, points: [pos] };
+  } else {
+    currentStroke = { color: penColor, width: penWidth, points: [pos] };
+  }
+}, { passive: false });
+
+canvas.addEventListener('pointermove', e => {
+  if (!isDrawing || !currentStroke) return;
+  if (e.pointerType === 'touch') return;
+  e.preventDefault();
+
+  const pos = { x: e.offsetX, y: e.offsetY };
+  currentStroke.points.push(pos);
+
+  if (mode === 'eraser') {
+    // Erase mode: composite destination-out
+    ctx.save();
+    ctx.globalCompositeOperation = 'destination-out';
+    ctx.beginPath();
+    ctx.arc(pos.x, pos.y, eraserWidth / 2, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+    // Also erase from strokes
+    eraseAt(pos.x, pos.y, eraserWidth / 2);
+  } else {
+    // Draw incrementally
+    const pts = currentStroke.points;
+    if (pts.length >= 2) {
+      ctx.beginPath();
+      ctx.strokeStyle = currentStroke.color;
+      ctx.lineWidth = currentStroke.width;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      const prev = pts[pts.length - 2];
+      ctx.moveTo(prev.x, prev.y);
+      ctx.lineTo(pos.x, pos.y);
+      ctx.stroke();
+    }
+  }
+}, { passive: false });
+
+canvas.addEventListener('pointerup', e => {
+  if (!isDrawing) return;
+  isDrawing = false;
+  if (currentStroke && mode === 'pen') {
+    strokes.push(currentStroke);
+    updateUndoCount();
+  }
+  currentStroke = null;
+});
+
+canvas.addEventListener('pointercancel', () => { isDrawing = false; currentStroke = null; });
+
+function eraseAt(x, y, r) {
+  // Remove points near erase position (simplified)
+  for (let stroke of strokes) {
+    stroke.points = stroke.points.filter(p => {
+      const dx = p.x - x, dy = p.y - y;
+      return Math.sqrt(dx * dx + dy * dy) > r;
+    });
+  }
+  strokes = strokes.filter(s => s.points.length > 1);
+}
+
+function updateUndoCount() {
+  const el = document.getElementById('undo-count');
+  el.textContent = strokes.length > 0 ? `${strokes.length} stroke${strokes.length > 1 ? 's' : ''}` : '';
+}
+
+// ─── TOOLBAR CONTROLS ──────────────────────────────────────────────────────
+
+document.getElementById('btn-pen').addEventListener('click', () => {
+  mode = 'pen';
+  document.getElementById('btn-pen').classList.add('active');
+  document.getElementById('btn-eraser').classList.remove('active');
+  document.getElementById('mode-label').textContent = '✏ Pen';
+  canvas.style.cursor = 'crosshair';
+});
+
+document.getElementById('btn-eraser').addEventListener('click', () => {
+  mode = 'eraser';
+  document.getElementById('btn-eraser').classList.add('active');
+  document.getElementById('btn-pen').classList.remove('active');
+  document.getElementById('mode-label').textContent = '🧹 Eraser';
+  canvas.style.cursor = 'cell';
+});
+
+document.getElementById('color-picker').addEventListener('input', e => {
+  penColor = e.target.value;
+  if (mode !== 'pen') {
+    mode = 'pen';
+    document.getElementById('btn-pen').classList.add('active');
+    document.getElementById('btn-eraser').classList.remove('active');
+  }
+});
+
+document.getElementById('stroke-slider').addEventListener('input', e => {
+  penWidth = parseInt(e.target.value);
+});
+
+document.getElementById('btn-undo').addEventListener('click', () => {
+  if (strokes.length === 0) return;
+  strokes.pop();
+  redraw();
+  updateUndoCount();
+});
+
+document.getElementById('btn-clear').addEventListener('click', () => {
+  if (!confirm('Clear all annotations?')) return;
+  strokes = [];
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  updateUndoCount();
+});
+
+document.getElementById('btn-export').addEventListener('click', () => {
+  // Merge SVG + canvas into image
+  const { W, H } = getSize();
+  const offscreen = document.createElement('canvas');
+  offscreen.width = W; offscreen.height = H;
+  const octx = offscreen.getContext('2d');
+
+  // Draw white background
+  octx.fillStyle = '#f5f0e8';
+  octx.fillRect(0, 0, W, H);
+
+  // Draw SVG as image
+  const svgData = new XMLSerializer().serializeToString(svg);
+  const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
+  const svgURL = URL.createObjectURL(svgBlob);
+  const img = new Image();
+  img.onload = () => {
+    octx.drawImage(img, 0, 0);
+    octx.drawImage(canvas, 0, 0);
+    URL.revokeObjectURL(svgURL);
+
+    const link = document.createElement('a');
+    link.download = `ICS_Command_Tree_${new Date().toISOString().slice(0,10)}.png`;
+    link.href = offscreen.toDataURL('image/png');
+    link.click();
+  };
+  img.src = svgURL;
+});
+
+// ─── QUICK COLOR PRESETS (tap toolbar area) ────────────────────────────────
+
+// Add preset swatches
+const presets = ['#1a1aff','#e8400c','#000000','#1db954','#f5a623','#ff2d55'];
+const sep = document.createElement('div');
+sep.className = 'tool-sep';
+const toolbar = document.getElementById('toolbar');
+toolbar.appendChild(sep);
+
+presets.forEach(color => {
+  const btn = document.createElement('button');
+  btn.className = 'tool-btn';
+  btn.style.cssText = `background:${color}; width:22px; height:22px; border-radius:50%; border:2px solid rgba(255,255,255,0.3); min-width:22px; flex-shrink:0;`;
+  btn.title = color;
+  btn.addEventListener('click', () => {
+    penColor = color;
+    document.getElementById('color-picker').value = color;
+    mode = 'pen';
+    document.getElementById('btn-pen').classList.add('active');
+    document.getElementById('btn-eraser').classList.remove('active');
+    document.getElementById('mode-label').textContent = '✏ Pen';
+  });
+  toolbar.appendChild(btn);
+});
+
+// ─── INIT & RESIZE ─────────────────────────────────────────────────────────
+
+function init() {
+  resizeCanvas();
+  renderTree();
+}
+
+window.addEventListener('resize', () => {
+  renderTree();
+  resizeCanvas();
+});
+
+// Lock to landscape on iPad if possible
+if (screen.orientation && screen.orientation.lock) {
+  screen.orientation.lock('landscape').catch(() => {});
+}
+
+init();
+</script>
+</body>
+</html>
