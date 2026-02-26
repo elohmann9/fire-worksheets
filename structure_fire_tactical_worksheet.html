@@ -1,0 +1,787 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Structure Fire Tactical Worksheet</title>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow+Condensed:wght@400;600;700;900&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0d0d0d;
+    --surface: #161616;
+    --surface2: #1e1e1e;
+    --border: #2e2e2e;
+    --border-bright: #444;
+    --accent: #e8400c;
+    --accent2: #f5a623;
+    --text: #e8e8e8;
+    --text-muted: #888;
+    --text-label: #aaa;
+    --input-bg: #111;
+    --input-border: #333;
+    --input-focus: #e8400c;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Barlow', sans-serif;
+    font-size: 13px;
+    min-height: 100vh;
+    padding: 20px;
+  }
+
+  .page {
+    max-width: 1100px;
+    margin: 0 auto;
+  }
+
+  /* HEADER */
+  .header {
+    border: 2px solid var(--accent);
+    background: var(--surface);
+    padding: 14px 20px;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+  }
+
+  .header-title {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 900;
+    font-size: 22px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: #fff;
+  }
+
+  .header-title span {
+    color: var(--accent);
+  }
+
+  .header-fields {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+    flex: 1;
+    max-width: 700px;
+  }
+
+  .field-group {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+
+  label {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 600;
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+  }
+
+  input[type="text"], input[type="time"], input[type="date"], textarea, select {
+    background: var(--input-bg);
+    border: 1px solid var(--input-border);
+    color: var(--text);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 12px;
+    padding: 5px 8px;
+    width: 100%;
+    transition: border-color 0.15s;
+    outline: none;
+    border-radius: 0;
+  }
+
+  input:focus, textarea:focus, select:focus {
+    border-color: var(--input-focus);
+    background: #1a0a08;
+  }
+
+  /* MAIN GRID */
+  .main-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 10px;
+  }
+
+  .panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+  }
+
+  .panel-title {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 700;
+    font-size: 11px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: #fff;
+    background: var(--accent);
+    padding: 5px 10px;
+  }
+
+  .panel-title.orange { background: var(--accent2); color: #000; }
+  .panel-title.dark { background: #222; color: var(--text-muted); border-bottom: 1px solid var(--border); }
+
+  .panel-body {
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+  }
+
+  /* SIZE-UP */
+  .sizeup-row {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+
+  .sizeup-row label {
+    color: var(--accent2);
+  }
+
+  textarea.sizeup {
+    resize: vertical;
+    min-height: 60px;
+  }
+
+  /* CHECKLIST */
+  .checklist {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .check-item {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding: 4px 6px;
+    cursor: pointer;
+    border: 1px solid transparent;
+    transition: background 0.1s, border-color 0.1s;
+  }
+
+  .check-item:hover {
+    background: #1a1a1a;
+    border-color: var(--border);
+  }
+
+  .check-item input[type="checkbox"] {
+    width: 14px;
+    height: 14px;
+    accent-color: var(--accent);
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+
+  .check-item span {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 13px;
+    letter-spacing: 0.04em;
+    color: var(--text);
+    line-height: 1.2;
+  }
+
+  .check-item.checked span {
+    color: var(--accent);
+  }
+
+  .sub-item {
+    padding-left: 20px;
+    font-size: 12px;
+  }
+
+  /* UNIT ROWS */
+  .unit-row {
+    display: grid;
+    grid-template-columns: 55px 1fr;
+    gap: 6px;
+    align-items: center;
+  }
+
+  .unit-label {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    color: var(--accent);
+    font-weight: bold;
+    text-transform: uppercase;
+  }
+
+  /* ALARM SECTIONS */
+  .alarm-section {
+    background: var(--surface);
+    border: 1px solid var(--border);
+  }
+
+  .alarm-header {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 900;
+    font-size: 13px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    padding: 6px 10px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .alarm-header.first { background: #1a1a1a; color: var(--text-muted); }
+  .alarm-header.second { background: #2a1500; color: var(--accent2); }
+  .alarm-header.third { background: #2a0000; color: var(--accent); }
+
+  .alarm-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+    padding: 8px;
+  }
+
+  /* DIVISION/GROUP */
+  .div-grid {
+    display: grid;
+    grid-template-columns: 60px 1fr 1fr;
+    gap: 5px;
+    align-items: center;
+    padding: 5px 0;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .div-grid:last-child { border-bottom: none; }
+
+  /* VICTIMS */
+  .victims-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+
+  .victim-box {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    padding: 8px;
+  }
+
+  .victim-title {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 700;
+    font-size: 11px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 6px;
+    padding-bottom: 4px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  /* MAYDAY */
+  .mayday-box {
+    background: #1a0000;
+    border: 2px solid var(--accent);
+  }
+
+  .mayday-title {
+    background: var(--accent);
+    color: #fff;
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 900;
+    font-size: 13px;
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    padding: 6px 10px;
+  }
+
+  /* SOLAR */
+  .solar-box {
+    background: #0a1000;
+    border: 1px solid #2a3a00;
+  }
+
+  .solar-title {
+    background: #3a5a00;
+    color: #d4ff00;
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 900;
+    font-size: 12px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    padding: 5px 10px;
+  }
+
+  /* TIMES BANNER */
+  .times-banner {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 10px 14px;
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 10px;
+    margin-bottom: 10px;
+  }
+
+  /* RESOURCES/OBJECTIVES */
+  .bottom-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 200px;
+    gap: 10px;
+    margin-bottom: 10px;
+  }
+
+  /* COMMAND */
+  .command-bar {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 10px 14px;
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr 1fr;
+    gap: 10px;
+  }
+
+  .divider {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 6px 0;
+  }
+
+  /* PAR section */
+  .par-options {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    align-items: center;
+  }
+
+  .par-label {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    margin-right: 4px;
+  }
+
+  .radio-group {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .radio-item {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    cursor: pointer;
+  }
+
+  .radio-item input[type="radio"] {
+    accent-color: var(--accent);
+    width: 13px;
+    height: 13px;
+  }
+
+  .radio-item span {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    color: var(--text);
+  }
+
+  /* print */
+  @media print {
+    body { background: #fff; color: #000; padding: 10px; }
+    .panel, .alarm-section, .victim-box, .mayday-box, .solar-box {
+      border: 1px solid #000 !important;
+      background: #fff !important;
+    }
+    .panel-title { background: #333 !important; }
+    .panel-title.orange { background: #888 !important; }
+    input, textarea { border: 1px solid #999 !important; background: #fff !important; color: #000 !important; }
+    :root { --text: #000; --text-muted: #444; }
+  }
+
+  .section-divider {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    padding: 3px 0;
+    border-bottom: 1px solid var(--border);
+    margin: 4px 0;
+  }
+
+  .inline-label {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px;
+    color: var(--accent2);
+    margin-right: 4px;
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <!-- HEADER -->
+  <div class="header">
+    <div>
+      <div class="header-title">Structure Fire<br><span>Tactical Worksheet</span></div>
+    </div>
+    <div class="header-fields">
+      <div class="field-group">
+        <label>Incident Name</label>
+        <input type="text" placeholder="Name">
+      </div>
+      <div class="field-group">
+        <label>Incident Date</label>
+        <input type="date">
+      </div>
+      <div class="field-group">
+        <label>Incident Time</label>
+        <input type="time">
+      </div>
+      <div class="field-group">
+        <label>Incident Location</label>
+        <input type="text" placeholder="Address">
+      </div>
+      <div class="field-group">
+        <label>Com. Channel</label>
+        <input type="text" placeholder="Channel">
+      </div>
+      <div class="field-group">
+        <label>TAC Channel</label>
+        <input type="text" placeholder="TAC">
+      </div>
+      <div class="field-group" style="grid-column: span 2;">
+        <label>Size-Up: Facts / Probabilities / Own Situation / Decision / Plan</label>
+        <input type="text" placeholder="Size-up narrative...">
+      </div>
+    </div>
+  </div>
+
+  <!-- TIMES BANNER -->
+  <div class="times-banner">
+    <div class="field-group"><label>Size Up</label><input type="time"></div>
+    <div class="field-group"><label>Water on Fire</label><input type="time"></div>
+    <div class="field-group"><label>Knock-Down</label><input type="time"></div>
+    <div class="field-group"><label>Search</label><input type="time"></div>
+    <div class="field-group"><label>Search Complete</label><input type="time"></div>
+    <div class="field-group"><label>Under Control</label><input type="time"></div>
+    <div class="field-group" style="grid-column: span 3;"><label>Suppression Complete</label><input type="time"></div>
+  </div>
+
+  <!-- THREE COLUMN MAIN -->
+  <div style="display:grid; grid-template-columns: 1.1fr 1.1fr 1fr; gap:10px; margin-bottom:10px;">
+
+    <!-- LEFT COLUMN -->
+    <div style="display:flex; flex-direction:column; gap:10px;">
+
+      <!-- OFFENSIVE/DEFENSIVE -->
+      <div class="panel">
+        <div class="panel-title">Mode / Actions</div>
+        <div class="panel-body">
+          <div class="section-divider">Mode</div>
+          <div class="checklist">
+            <label class="check-item"><input type="checkbox"><span>Offensive</span></label>
+            <label class="check-item"><input type="checkbox"><span>Defensive</span></label>
+            <label class="check-item"><input type="checkbox"><span>Combination</span></label>
+          </div>
+
+          <div class="section-divider">360 / Recon</div>
+          <div class="checklist">
+            <label class="check-item"><input type="checkbox"><span>360</span></label>
+            <label class="check-item"><input type="checkbox"><span>360 Update</span></label>
+            <label class="check-item"><input type="checkbox"><span>I – Incident Command</span></label>
+            <label class="check-item"><input type="checkbox"><span>W – Water Supply</span></label>
+            <label class="check-item"><input type="checkbox"><span>A – Auto/Sprinkler/Standpipe</span></label>
+            <label class="check-item"><input type="checkbox"><span>S – Search (primary/secondary)</span></label>
+            <label class="check-item"><input type="checkbox"><span>B – Back-Up Line</span></label>
+            <label class="check-item"><input type="checkbox"><span>A – Attack Line (1¾/2 ½)</span></label>
+            <label class="check-item"><input type="checkbox"><span>O – Out Team</span></label>
+            <label class="check-item"><input type="checkbox"><span>V – Ventilation</span></label>
+            <label class="check-item"><input type="checkbox"><span>E – Exposures</span></label>
+            <label class="check-item"><input type="checkbox"><span>R – RIC Team</span></label>
+            <label class="check-item"><input type="checkbox"><span>R – Rehab</span></label>
+            <label class="check-item"><input type="checkbox"><span>O – Overhaul</span></label>
+            <label class="check-item"><input type="checkbox"><span>S – Salvage</span></label>
+            <label class="check-item"><input type="checkbox"><span>S – Support</span></label>
+            <label class="check-item"><input type="checkbox"><span>C – Conditions</span></label>
+            <label class="check-item"><input type="checkbox"><span>U – Utilities (Elec/Solar/ESS/Gas)</span></label>
+            <label class="check-item"><input type="checkbox"><span>R – Red Cross</span></label>
+            <label class="check-item"><input type="checkbox"><span>D – DIV/GRPS</span></label>
+          </div>
+        </div>
+      </div>
+
+      <!-- PRIMARY / SECONDARY SEARCH + VICTIMS -->
+      <div class="panel">
+        <div class="panel-title">Search & Victims</div>
+        <div class="panel-body">
+          <div class="section-divider">Primary Search</div>
+          <div style="display:grid; grid-template-columns: 30px 1fr 30px 1fr; gap:5px; align-items:center; margin-bottom:5px;">
+            <span class="inline-label">1st</span><input type="text" placeholder="Unit#">
+            <span class="inline-label">2nd</span><input type="text" placeholder="Unit#">
+            <span class="inline-label">3rd</span><input type="text" placeholder="Unit#">
+          </div>
+          <div class="section-divider">Secondary Search</div>
+          <div style="display:grid; grid-template-columns: 30px 1fr 30px 1fr; gap:5px; align-items:center; margin-bottom:5px;">
+            <span class="inline-label">1st</span><input type="text" placeholder="Unit#">
+            <span class="inline-label">2nd</span><input type="text" placeholder="Unit#">
+          </div>
+          <div style="display:flex; gap:5px; align-items:center;">
+            <label class="check-item"><input type="checkbox"><span>All Clear</span></label>
+          </div>
+
+          <div class="section-divider" style="margin-top:8px;">Victims</div>
+          <div class="victims-grid">
+            <div class="victim-box">
+              <div class="victim-title">Victim #1</div>
+              <div class="field-group"><label>Unit #</label><input type="text"></div>
+            </div>
+            <div class="victim-box">
+              <div class="victim-title">Victim #2</div>
+              <div class="field-group"><label>Unit #</label><input type="text"></div>
+            </div>
+            <div class="victim-box">
+              <div class="victim-title">Victim #3</div>
+              <div class="field-group"><label>Unit #</label><input type="text"></div>
+            </div>
+            <div class="victim-box">
+              <div class="victim-title">Victim #4</div>
+              <div class="field-group"><label>Unit #</label><input type="text"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- MIDDLE COLUMN -->
+    <div style="display:flex; flex-direction:column; gap:10px;">
+
+      <!-- ALARM STAGES -->
+      <div class="alarm-section">
+        <div class="alarm-header first">1st Alarm Units</div>
+        <div class="alarm-grid">
+          <div class="unit-row"><span class="unit-label">E/Q –</span><input type="text" placeholder="Unit"></div>
+          <div class="unit-row"><span class="unit-label">E/Q –</span><input type="text" placeholder="Unit"></div>
+          <div class="unit-row"><span class="unit-label">E/Q –</span><input type="text" placeholder="Unit"></div>
+          <div class="unit-row"><span class="unit-label">E/Q –</span><input type="text" placeholder="Unit"></div>
+          <div class="unit-row"><span class="unit-label">E/Q –</span><input type="text" placeholder="Unit"></div>
+          <div class="unit-row"><span class="unit-label">T/Q –</span><input type="text" placeholder="Unit"></div>
+          <div class="unit-row"><span class="unit-label">T/Q –</span><input type="text" placeholder="Unit"></div>
+          <div class="unit-row"><span class="unit-label">BC –</span><input type="text" placeholder="Unit"></div>
+          <div class="unit-row"><span class="unit-label">BC –</span><input type="text" placeholder="Unit"></div>
+          <div class="unit-row"><span class="unit-label">CMD –</span><input type="text" placeholder="Unit"></div>
+          <div class="unit-row"><span class="unit-label">CH –</span><input type="text" placeholder="Unit"></div>
+          <div class="unit-row"><span class="unit-label">USAR –</span><input type="text" placeholder="Unit"></div>
+        </div>
+      </div>
+
+      <div class="alarm-section">
+        <div class="alarm-header second">2nd Alarm Stage @</div>
+        <div class="alarm-grid">
+          <div class="unit-row"><span class="unit-label">E/Q –</span><input type="text" placeholder="Unit"></div>
+          <div class="unit-row"><span class="unit-label">E/Q –</span><input type="text" placeholder="Unit"></div>
+          <div class="unit-row"><span class="unit-label">E/Q –</span><input type="text" placeholder="Unit"></div>
+          <div class="unit-row"><span class="unit-label">T/Q –</span><input type="text" placeholder="Unit"></div>
+          <div class="unit-row"><span class="unit-label">BC –</span><input type="text" placeholder="Unit"></div>
+          <div class="unit-row"><span class="unit-label">BS –</span><input type="text" placeholder="Unit"></div>
+        </div>
+      </div>
+
+      <div class="alarm-section">
+        <div class="alarm-header third">3rd Alarm</div>
+        <div class="alarm-grid">
+          <div class="unit-row"><span class="unit-label">E/Q –</span><input type="text" placeholder="Unit"></div>
+          <div class="unit-row"><span class="unit-label">E/Q –</span><input type="text" placeholder="Unit"></div>
+          <div class="unit-row"><span class="unit-label">E/Q –</span><input type="text" placeholder="Unit"></div>
+          <div class="unit-row"><span class="unit-label">T –</span><input type="text" placeholder="Unit"></div>
+        </div>
+      </div>
+
+      <div class="alarm-section">
+        <div class="alarm-header" style="background:#2a0030; color:#fff;">4th Alarm</div>
+        <div class="alarm-grid">
+          <div class="unit-row"><span class="unit-label">E/Q –</span><input type="text" placeholder="Unit"></div>
+          <div class="unit-row"><span class="unit-label">E/Q –</span><input type="text" placeholder="Unit"></div>
+          <div class="unit-row"><span class="unit-label">E/Q –</span><input type="text" placeholder="Unit"></div>
+          <div class="unit-row"><span class="unit-label">BC –</span><input type="text" placeholder="Unit"></div>
+        </div>
+      </div>
+
+      <!-- DIVISION / GROUP -->
+      <div class="panel">
+        <div class="panel-title dark">Division / Group</div>
+        <div class="panel-body" style="gap:0">
+          <div class="div-grid">
+            <span class="unit-label" style="color:var(--text-muted);">DIV/GRP</span>
+            <div class="field-group"><label>Name</label><input type="text"></div>
+            <div class="field-group"><label>Supervisor</label><input type="text"></div>
+          </div>
+          <div class="div-grid">
+            <span class="unit-label" style="color:var(--text-muted);">DIV/GRP</span>
+            <div class="field-group"><label>Name</label><input type="text"></div>
+            <div class="field-group"><label>Supervisor</label><input type="text"></div>
+          </div>
+          <div class="div-grid">
+            <span class="unit-label" style="color:var(--text-muted);">DIV/GRP</span>
+            <div class="field-group"><label>Name</label><input type="text"></div>
+            <div class="field-group"><label>Supervisor</label><input type="text"></div>
+          </div>
+          <div class="div-grid">
+            <span class="unit-label" style="color:var(--text-muted);">BC –</span>
+            <div class="field-group"><label>Assignment</label><input type="text"></div>
+            <div class="field-group"><label>Unit</label><input type="text"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT COLUMN -->
+    <div style="display:flex; flex-direction:column; gap:10px;">
+
+      <!-- AMR / PAR -->
+      <div class="panel">
+        <div class="panel-title orange">AMR</div>
+        <div class="panel-body">
+          <div class="par-options">
+            <span class="par-label">PAR:</span>
+            <div class="radio-group">
+              <label class="radio-item"><input type="radio" name="par"><span>15min</span></label>
+              <label class="radio-item"><input type="radio" name="par"><span>30min</span></label>
+              <label class="radio-item"><input type="radio" name="par"><span>45min</span></label>
+              <label class="radio-item"><input type="radio" name="par"><span>60min</span></label>
+            </div>
+          </div>
+          <hr class="divider">
+          <div class="checklist">
+            <label class="check-item"><input type="checkbox"><span>A – AMR</span></label>
+            <label class="check-item"><input type="checkbox"><span>M – MCI 1/2/3</span></label>
+            <label class="check-item"><input type="checkbox"><span>P – PD</span></label>
+            <label class="check-item"><input type="checkbox"><span>H – Hazmat</span></label>
+            <label class="check-item"><input type="checkbox"><span>I – Investigator</span></label>
+            <label class="check-item"><input type="checkbox"><span>B – Board-Up Company</span></label>
+            <label class="check-item"><input type="checkbox"><span>I – Incident Clock</span></label>
+            <label class="check-item"><input type="checkbox"><span>A – Air Unit</span></label>
+            <label class="check-item"><input type="checkbox"><span>N – Notifications</span></label>
+            <label class="check-item"><input type="checkbox"><span>P – PARS</span></label>
+            <label class="check-item"><input type="checkbox"><span>P – PIO</span></label>
+            <label class="check-item"><input type="checkbox"><span>H – HELO</span></label>
+            <label class="check-item"><input type="checkbox"><span>Z – ZONES Hot/Cold</span></label>
+            <label class="check-item"><input type="checkbox"><span>PG&amp;E</span></label>
+          </div>
+          <hr class="divider">
+          <div style="font-size:9px; font-weight:700; letter-spacing:0.12em; text-transform:uppercase; color:#888; padding:2px 0 4px 0;">1st Alarm Paging Groups</div>
+          <div class="checklist">
+            <label class="check-item"><input type="checkbox"><span>EMS All Page</span></label>
+            <label class="check-item"><input type="checkbox"><span>Medical Op Area Coord</span></label>
+            <label class="check-item"><input type="checkbox"><span>OES Notification</span></label>
+            <label class="check-item"><input type="checkbox"><span>PSC Admin</span></label>
+          </div>
+        </div>
+      </div>
+
+      <!-- SOLAR / ESS -->
+      <div class="solar-box">
+        <div class="solar-title">☀ Solar / ESS</div>
+        <div class="panel-body">
+          <div class="checklist">
+            <label class="check-item"><input type="checkbox"><span>Panels/Roof</span></label>
+            <label class="check-item"><input type="checkbox"><span>String/Shut-off</span></label>
+            <label class="check-item"><input type="checkbox"><span>Micro-Invertor</span></label>
+            <label class="check-item"><input type="checkbox"><span>ESS/Battery</span></label>
+          </div>
+          <hr class="divider">
+          <div class="field-group"><label>Location</label><input type="text"></div>
+          <div class="checklist">
+            <label class="check-item"><input type="checkbox"><span>Venting/Fire</span></label>
+            <label class="check-item"><input type="checkbox"><span>Shut-off</span></label>
+          </div>
+        </div>
+      </div>
+
+      <!-- MAYDAY PROCEDURE -->
+      <div class="mayday-box">
+        <div class="mayday-title">⚠ Mayday Procedure</div>
+        <div class="panel-body">
+          <div class="checklist">
+            <label class="check-item"><input type="checkbox"><span>Hold radio traffic</span></label>
+            <label class="check-item"><input type="checkbox"><span>Acknowledge Mayday</span></label>
+            <label class="check-item"><input type="checkbox"><span>Contact downed FF</span></label>
+            <label class="check-item"><input type="checkbox"><span>Activate PASS</span></label>
+            <label class="check-item"><input type="checkbox"><span>Flashlight</span></label>
+            <label class="check-item"><input type="checkbox"><span>FF survival techniques</span></label>
+            <label class="check-item"><input type="checkbox"><span>Reposition closest</span></label>
+            <label class="check-item"><input type="checkbox"><span>Deploy RIC & RIC Grp. S</span></label>
+            <label class="check-item"><input type="checkbox"><span>VEIS</span></label>
+            <label class="check-item"><input type="checkbox"><span>Call 2 additional alarms</span></label>
+            <label class="check-item"><input type="checkbox"><span>Secondary TAC/PAR</span></label>
+            <label class="check-item"><input type="checkbox"><span>Establish medical/Helo</span></label>
+          </div>
+          <div style="display:grid; grid-template-columns: 40px 1fr 1fr; gap:5px; align-items:center; margin-top:4px;">
+            <span class="inline-label">P–P</span><input type="text" placeholder="Unit"><input type="text" placeholder="Unit">
+            <span class="inline-label">H–HELO</span><input type="text" placeholder="Unit"><input type="text" placeholder="">
+            <span class="inline-label">Z–ZONES</span><input type="text" placeholder="Hot/Cold"><input type="text" placeholder="">
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- BOTTOM: OBJECTIVES / RESOURCES / COMMAND -->
+  <div class="bottom-grid">
+    <div class="panel">
+      <div class="panel-title">Objectives</div>
+      <div class="panel-body">
+        <textarea style="resize:vertical; min-height:80px; font-family:'Share Tech Mono',monospace; font-size:12px; background:var(--input-bg); border:1px solid var(--input-border); color:var(--text); padding:6px; width:100%;" placeholder="Life safety, incident stabilization, property conservation..."></textarea>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="panel-title">Resources</div>
+      <div class="panel-body">
+        <textarea style="resize:vertical; min-height:80px; font-family:'Share Tech Mono',monospace; font-size:12px; background:var(--input-bg); border:1px solid var(--input-border); color:var(--text); padding:6px; width:100%;" placeholder="Staging, mutual aid, additional resources..."></textarea>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="panel-title dark">Command</div>
+      <div class="panel-body">
+        <div class="field-group"><label>IC Name</label><input type="text" placeholder="Name"></div>
+        <div class="field-group"><label>Location</label><input type="text" placeholder="CP Location"></div>
+        <div class="field-group"><label>Notes</label><textarea style="min-height:40px; resize:vertical; font-family:'Share Tech Mono',monospace; font-size:12px; background:var(--input-bg); border:1px solid var(--input-border); color:var(--text); padding:5px; width:100%;"></textarea></div>
+      </div>
+    </div>
+  </div>
+
+  <div style="text-align:center; padding:8px; color:var(--text-muted); font-family:'Share Tech Mono',monospace; font-size:10px; letter-spacing:0.15em;">
+    STRUCTURE FIRE TACTICAL WORKSHEET — WOODSIDE FIRE PROTECTION DISTRICT
+  </div>
+
+</div>
+
+<script>
+  // Auto-check highlight
+  document.querySelectorAll('.check-item').forEach(item => {
+    const cb = item.querySelector('input[type="checkbox"]');
+    if (!cb) return;
+    cb.addEventListener('change', () => {
+      item.classList.toggle('checked', cb.checked);
+      if (cb.checked) {
+        item.style.background = '#1a0a08';
+        item.style.borderColor = 'var(--accent)';
+      } else {
+        item.style.background = '';
+        item.style.borderColor = 'transparent';
+      }
+    });
+  });
+</script>
+</body>
+</html>
