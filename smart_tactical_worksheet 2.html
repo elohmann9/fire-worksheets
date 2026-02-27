@@ -1,0 +1,1299 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Smart Tactical Worksheet</title>
+<!-- PWA Config -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Tactical WS">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#0d0d0d">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="manifest" href="data:application/json,{&quot;name&quot;:&quot;Smart Tactical Worksheet&quot;,&quot;short_name&quot;:&quot;Tactical WS&quot;,&quot;start_url&quot;:&quot;./smart_tactical_worksheet.html&quot;,&quot;display&quot;:&quot;standalone&quot;,&quot;background_color&quot;:&quot;%230d0d0d&quot;,&quot;theme_color&quot;:&quot;%230d0d0d&quot;,&quot;orientation&quot;:&quot;landscape&quot;}">
+
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow+Condensed:wght@400;600;700;900&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
+
+<!-- Firebase SDK -->
+<script type="module">
+  import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js';
+  import { getDatabase, ref, onValue, set, update } from 'https://www.gstatic.com/firebasejs/10.7.0/firebase-database.js';
+
+  // ── !! CONFIGURE THESE !! ──────────────────────────────────────────────
+  const FIREBASE_CONFIG = {
+    apiKey: "AIzaSyBpFFNs-4oujL7EEhZaeps8Ln-dYROHrkc",
+    authDomain: "woodside-tactical.firebaseapp.com",
+    databaseURL: "https://woodside-tactical-default-rtdb.firebaseio.com",
+    projectId: "woodside-tactical",
+    storageBucket: "woodside-tactical.firebasestorage.app",
+    messagingSenderId: "256434968532",
+    appId: "1:256434968532:web:c3e7d3d68785c27f2e2841"
+  };
+  const CLAUDE_API_KEY = localStorage.getItem("claudeApiKey") || "";
+  const INCIDENT_ID = "incident_" + new Date().toISOString().slice(0,10); // one doc per day, change as needed
+  // ───────────────────────────────────────────────────────────────────────
+
+  // ── FIREBASE INIT ──
+  let db = null;
+  let firebaseReady = false;
+  try {
+    const app = initializeApp(FIREBASE_CONFIG);
+    db = getDatabase(app);
+    firebaseReady = true;
+    console.log('Firebase connected');
+  } catch(e) {
+    console.warn('Firebase not configured — running in local-only mode:', e.message);
+  }
+
+  // ── EXPOSE TO WINDOW ──
+  window._firebaseReady = firebaseReady;
+  window._db = db;
+  window._fbRef = firebaseReady ? ref : null;
+  window._fbSet = firebaseReady ? set : null;
+  window._fbUpdate = firebaseReady ? update : null;
+  window._fbOnValue = firebaseReady ? onValue : null;
+  window._INCIDENT_ID = INCIDENT_ID;
+  window._CLAUDE_API_KEY = CLAUDE_API_KEY;
+
+  // Dispatch ready event
+  window.dispatchEvent(new Event('firebase-ready'));
+</script>
+
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+
+:root {
+  --bg: #f8f7f4;
+  --white: #ffffff;
+  --black: #111;
+  --border: #d0d0d0;
+  --mid: #666;
+  --light: #999;
+  --shdr: #1a1a1a;
+  --shdr-t: #fff;
+  --accent: #e8400c;
+  --accent2: #f5a623;
+  --green: #1a7a3a;
+  --blue: #1a4aaa;
+  --font: 'Barlow Condensed', sans-serif;
+  --mono: 'Share Tech Mono', monospace;
+
+  /* AI fill highlight */
+  --ai-fill: #fff8e6;
+  --ai-border: #f5a623;
+  --manual-fill: #f0fff4;
+  --manual-border: #1a7a3a;
+}
+
+html, body { width:100%; min-height:100%; background:var(--bg); font-family:var(--font); color:var(--black); -webkit-text-size-adjust:none; }
+
+/* ── MODE SELECTOR SCREEN ── */
+#mode-screen {
+  position: fixed; inset: 0;
+  background: #0d0d0d;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  z-index: 1000;
+  gap: 0;
+}
+
+.mode-title {
+  font-family: var(--font); font-weight: 900; font-size: 13px;
+  letter-spacing: 0.35em; text-transform: uppercase;
+  color: #555; margin-bottom: 8px;
+}
+
+.mode-heading {
+  font-family: var(--font); font-weight: 900; font-size: 36px;
+  letter-spacing: 0.1em; text-transform: uppercase;
+  color: #fff; margin-bottom: 6px; text-align: center;
+}
+
+.mode-sub {
+  font-size: 13px; color: #666; letter-spacing: 0.08em;
+  margin-bottom: 48px; text-align: center;
+  font-family: var(--mono);
+}
+
+.mode-btns { display: flex; gap: 16px; flex-wrap: wrap; justify-content: center; }
+
+.mode-btn {
+  background: transparent;
+  border: 2px solid #333;
+  color: #ccc;
+  font-family: var(--font); font-weight: 700; font-size: 16px;
+  letter-spacing: 0.2em; text-transform: uppercase;
+  padding: 20px 40px;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex; flex-direction: column; align-items: center; gap: 8px;
+  min-width: 200px;
+}
+
+.mode-btn:hover { border-color: var(--accent); color: #fff; }
+.mode-btn.ic { border-color: var(--accent); }
+.mode-btn.ic:hover { background: var(--accent); }
+.mode-btn.bc { border-color: #4a8fff; }
+.mode-btn.bc:hover { background: #1a4aaa; border-color: #4a8fff; color: #fff; }
+
+.mode-btn-icon { font-size: 32px; }
+.mode-btn-desc { font-size: 10px; color: #555; letter-spacing: 0.1em; font-weight: 400; }
+
+.mode-incident-row {
+  display: flex; align-items: center; gap: 10px;
+  margin-bottom: 32px;
+}
+.mode-incident-row label { font-size: 11px; color: #555; letter-spacing: 0.1em; text-transform: uppercase; font-family: var(--mono); }
+#incident-id-input {
+  background: #1a1a1a; border: 1px solid #333; color: #fff;
+  font-family: var(--mono); font-size: 14px; padding: 8px 12px;
+  outline: none; width: 200px;
+}
+#incident-id-input:focus { border-color: var(--accent); }
+
+/* ── STATUS BAR ── */
+#status-bar {
+  position: fixed; top: 0; left: 0; right: 0;
+  height: 44px; background: var(--shdr);
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 14px; z-index: 100;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.3);
+}
+
+.status-left { display: flex; align-items: center; gap: 10px; }
+.status-right { display: flex; align-items: center; gap: 8px; }
+
+.mode-badge {
+  font-family: var(--font); font-weight: 900; font-size: 11px;
+  letter-spacing: 0.2em; text-transform: uppercase;
+  padding: 3px 10px; border-radius: 2px;
+}
+.mode-badge.ic { background: var(--accent); color: #fff; }
+.mode-badge.bc { background: var(--blue); color: #fff; }
+
+.sync-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: #333; transition: background 0.3s;
+}
+.sync-dot.live { background: #1db954; box-shadow: 0 0 6px #1db954; }
+.sync-dot.syncing { background: var(--accent2); animation: pulse 0.6s infinite; }
+
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+.sync-label { font-size: 10px; color: #666; font-family: var(--mono); letter-spacing: 0.08em; }
+
+#incident-label { font-size: 11px; color: #555; font-family: var(--mono); }
+
+/* ── MIC BUTTON ── */
+#mic-btn {
+  background: #1a1a1a; border: 2px solid #333;
+  color: #888; font-size: 18px;
+  width: 36px; height: 36px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; transition: all 0.2s;
+  flex-shrink: 0;
+}
+#mic-btn:hover { border-color: var(--accent); color: #fff; }
+#mic-btn.listening { background: var(--accent); border-color: var(--accent); color: #fff; animation: mic-pulse 1.5s infinite; }
+@keyframes mic-pulse { 0%,100%{box-shadow:0 0 0 0 rgba(232,64,12,0.4)} 50%{box-shadow:0 0 0 8px rgba(232,64,12,0)} }
+
+/* ── TRANSCRIPT PANEL ── */
+#transcript-panel {
+  position: fixed; bottom: 56px; left: 0; right: 0;
+  background: rgba(10,10,10,0.95);
+  border-top: 1px solid #222;
+  padding: 8px 14px;
+  z-index: 90;
+  max-height: 100px;
+  overflow-y: auto;
+  display: none;
+  backdrop-filter: blur(12px);
+}
+#transcript-panel.visible { display: block; }
+
+#transcript-text {
+  font-family: var(--mono); font-size: 11px; color: #aaa;
+  line-height: 1.5;
+}
+#transcript-text .interim { color: #555; font-style: italic; }
+#transcript-text .final { color: #ccc; }
+#transcript-text .processing { color: var(--accent2); }
+
+/* ── AI ACTIVITY ── */
+#ai-badge {
+  font-size: 9px; font-family: var(--mono); letter-spacing: 0.08em;
+  color: var(--accent2); display: none; align-items: center; gap: 4px;
+}
+#ai-badge.visible { display: flex; }
+#ai-spinner { animation: spin 1s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── TOOLBAR ── */
+#toolbar {
+  position: fixed; bottom: 0; left: 0; right: 0;
+  height: 50px; background: rgba(8,8,8,0.96);
+  display: flex; align-items: center; justify-content: center;
+  gap: 6px; z-index: 100;
+  backdrop-filter: blur(16px);
+  border-top: 1px solid #222;
+  padding: 0 14px;
+}
+.tbtn {
+  background: transparent; border: none; color: #888;
+  font-size: 16px; width: 34px; height: 34px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; transition: all 0.15s;
+  -webkit-tap-highlight-color: transparent;
+}
+.tbtn:active, .tbtn.active { background: var(--accent); color: #fff; }
+.tsep { width:1px; height:20px; background:rgba(255,255,255,0.1); margin:0 3px; flex-shrink:0; }
+.tlabel { font-size:9px; color:#555; letter-spacing:0.1em; text-transform:uppercase; }
+
+/* ── MAIN PAGE ── */
+.page {
+  margin-top: 44px;
+  padding: 8px 10px 110px 10px;
+  max-width: 1366px;
+  margin-left: auto; margin-right: auto;
+}
+
+/* ── FORM ELEMENTS ── */
+.form-title {
+  text-align: center; font-weight: 900; font-size: 15px;
+  letter-spacing: 0.3em; text-transform: uppercase;
+  border-bottom: 2px solid var(--black);
+  padding-bottom: 4px; margin-bottom: 6px;
+  font-family: var(--font);
+}
+
+.hdr-grid { display:grid; grid-template-columns:2.2fr 1fr 1fr 1.4fr; border:1.5px solid var(--black); margin-bottom:3px; }
+.hdr-cell { padding:3px 7px; border-right:1px solid var(--black); display:flex; flex-direction:column; gap:3px; }
+.hdr-cell:last-child { border-right:none; }
+.lbl { font-weight:700; font-size:9px; letter-spacing:0.14em; text-transform:uppercase; color:var(--mid); font-family:var(--font); }
+
+.times-bar { display:grid; grid-template-columns:repeat(6,1fr); border:1.5px solid var(--black); border-top:none; margin-bottom:5px; }
+.time-cell { padding:2px 5px; border-right:1px solid var(--black); display:flex; flex-direction:column; gap:2px; }
+.time-cell:last-child { border-right:none; }
+
+/* AI-fillable field */
+.afield {
+  border: none; border-bottom: 1px solid var(--border);
+  background: transparent; outline: none;
+  font-family: var(--mono); font-size: 12px; color: var(--black);
+  width: 100%; padding: 2px 3px; min-height: 20px;
+  transition: background 0.3s, border-color 0.3s;
+}
+.afield.ai-filled { background: var(--ai-fill); border-color: var(--ai-border); }
+.afield.manual-filled { background: var(--manual-fill); border-color: var(--manual-border); }
+.afield:focus { border-color: var(--accent); background: #fff8f5; }
+
+/* BC mode - fields not editable */
+body.bc-mode .afield { pointer-events: none; cursor: default; }
+body.bc-mode input[type=checkbox] { pointer-events: none; }
+body.bc-mode input[type=radio] { pointer-events: none; }
+
+/* ── 3-COL LAYOUT ── */
+.main-grid { display:grid; grid-template-columns:280px 1fr 400px; gap:6px; align-items:start; }
+
+.sec { border:1.5px solid var(--black); margin-bottom:5px; }
+.sec:last-child { margin-bottom:0; }
+.sec-hdr {
+  background:var(--shdr); color:var(--shdr-t);
+  font-weight:900; font-size:10px; letter-spacing:0.2em; text-transform:uppercase;
+  padding:4px 8px; display:flex; align-items:center; justify-content:space-between;
+  font-family:var(--font);
+}
+.sec-hdr.a2 { background:#3a1a00; }
+.sec-hdr.a3 { background:#2a0000; }
+.sec-hdr.a4 { background:#1a0020; }
+.sec-hdr.solar { background:#1a3000; color:#c8ff00; }
+.sec-hdr.mayday { background:#1c1c1c; border-left:5px solid var(--accent); }
+.sec-hdr small { font-size:8px; font-weight:400; color:#aaa; letter-spacing:0.05em; text-transform:none; }
+
+/* STAGING */
+.col-hdr { display:grid; grid-template-columns:52px 1fr 58px; background:#f0f0f0; border-bottom:1px solid #ccc; }
+.col-hdr span { font-size:8px; color:#999; padding:2px 5px; letter-spacing:0.07em; border-right:1px solid #ddd; }
+.col-hdr span:last-child { border-right:none; text-align:center; }
+
+.s-row { display:grid; grid-template-columns:52px 1fr 58px; border-bottom:1px solid #e8e8e8; min-height:30px; }
+.s-row:last-child { border-bottom:none; }
+.s-row:nth-child(even) { background:#fafafa; }
+.s-tag { font-family:var(--mono); font-weight:700; font-size:11px; padding:0 5px; border-right:1px solid #ddd; display:flex; align-items:center; color:#333; background:#efefef; letter-spacing:0.04em; flex-shrink:0; }
+.s-name { border-right:1px solid #ddd; display:flex; align-items:center; }
+.s-name .afield { border-bottom:none; padding:0 6px; height:100%; min-height:30px; }
+.s-time { display:flex; align-items:center; justify-content:center; }
+.s-time .afield { text-align:center; border-bottom:none; font-size:10px; height:100%; min-height:30px; padding:0 3px; }
+
+/* CHECKLIST */
+.clist { display:flex; flex-direction:column; }
+.c2col { display:grid; grid-template-columns:1fr 1fr; }
+.crow {
+  display:flex; align-items:center; gap:7px;
+  padding:3px 7px; border-bottom:1px solid #ececec; min-height:26px;
+  cursor:pointer; -webkit-tap-highlight-color:transparent;
+  transition: background 0.2s;
+}
+.crow:last-child { border-bottom:none; }
+.crow:nth-child(even) { background:#fafafa; }
+.crow.ai-checked { background: var(--ai-fill); }
+.crow input[type=checkbox] { width:15px; height:15px; accent-color:#000; flex-shrink:0; cursor:pointer; }
+.crow span { font-size:11px; font-family:var(--font); font-weight:500; letter-spacing:0.02em; line-height:1.2; user-select:none; }
+
+/* ASSIGN BOXES */
+.assign-grid { display:grid; grid-template-columns:1fr 1fr; gap:5px; padding:5px; }
+.abox { border:1.5px solid var(--black); display:flex; flex-direction:column; min-height:70px; }
+.abox.wide { grid-column:span 2; min-height:56px; }
+.abox-hdr { background:var(--shdr); color:var(--shdr-t); font-weight:700; font-size:10px; letter-spacing:0.12em; text-transform:uppercase; padding:3px 7px; display:flex; align-items:center; justify-content:space-between; font-family:var(--font); }
+.abox-hdr small { font-size:8px; font-weight:400; color:#aaa; }
+.abox-body { flex:1; padding:4px 6px; display:flex; flex-direction:column; gap:3px; }
+
+/* AI status indicator on field */
+.field-wrap { position:relative; }
+.ai-indicator {
+  position:absolute; right:2px; top:50%; transform:translateY(-50%);
+  font-size:9px; color:var(--accent2); pointer-events:none;
+  opacity:0; transition:opacity 0.3s;
+}
+.ai-filled + .ai-indicator { opacity:1; }
+
+/* PAR */
+.par-row { display:flex; align-items:center; gap:8px; padding:4px 7px; border-bottom:1px solid #eee; flex-wrap:wrap; }
+.par-lbl { font-weight:700; font-size:10px; letter-spacing:0.1em; color:#333; flex-shrink:0; font-family:var(--font); }
+.r-grp { display:flex; gap:10px; flex-wrap:wrap; }
+.r-item { display:flex; align-items:center; gap:3px; cursor:pointer; }
+.r-item input { accent-color:#000; width:13px; height:13px; }
+.r-item span { font-size:11px; font-family:var(--mono); }
+
+/* VICTIMS */
+.v-grid { display:grid; grid-template-columns:1fr 1fr; gap:4px; padding:4px; }
+.v-box { border:1px solid #ccc; padding:3px 5px; min-height:34px; }
+.v-title { font-weight:700; font-size:9px; letter-spacing:0.1em; text-transform:uppercase; color:#888; border-bottom:1px solid #eee; padding-bottom:2px; margin-bottom:3px; font-family:var(--font); }
+
+/* BOTTOM */
+.bottom-bar { display:grid; grid-template-columns:1fr 1fr 180px; gap:4px; margin-top:4px; }
+.bb { border:1.5px solid var(--black); }
+.bb-hdr { background:var(--shdr); color:var(--shdr-t); font-weight:700; font-size:10px; letter-spacing:0.15em; text-transform:uppercase; padding:3px 8px; font-family:var(--font); }
+.bb-body { min-height:46px; padding:4px 7px; }
+
+/* SEARCH */
+.search-row { display:grid; grid-template-columns:90px repeat(3,1fr) 70px; gap:3px; align-items:center; padding:3px 6px; border-bottom:1px solid #eee; }
+.search-row:last-child { border-bottom:none; }
+.search-lbl { font-weight:700; font-size:10px; color:var(--mid); font-family:var(--font); }
+.wbox { border:1px solid #ccc; min-height:22px; display:flex; align-items:center; }
+.wbox .afield { border-bottom:none; height:100%; min-height:22px; padding:2px 4px; }
+
+/* LEGEND */
+.legend { border:1.5px solid var(--black); margin-bottom:5px; }
+.legend-body { display:grid; grid-template-columns:1fr 1fr; }
+.leg-item { display:flex; align-items:center; gap:7px; padding:4px 8px; border-right:1px solid #eee; border-bottom:1px solid #eee; }
+.leg-item:nth-child(2n) { border-right:none; }
+.leg-item:nth-last-child(-n+2) { border-bottom:none; }
+.leg-sym { font-family:var(--mono); font-size:12px; font-weight:700; min-width:32px; flex-shrink:0; }
+.leg-desc { font-size:10px; color:#555; line-height:1.3; font-family:var(--font); }
+
+/* BC READ-ONLY OVERLAY */
+#bc-overlay {
+  position: fixed; top: 44px; right: 12px;
+  background: rgba(26,74,170,0.95);
+  color: #fff; padding: 8px 14px; border-radius: 4px;
+  font-family: var(--mono); font-size: 11px; letter-spacing: 0.08em;
+  z-index: 90; display: none;
+}
+#bc-overlay.visible { display: block; }
+
+/* AI FILL ANIMATION */
+@keyframes ai-pop {
+  0% { background: #fff3cd; }
+  60% { background: var(--ai-fill); }
+  100% { background: var(--ai-fill); }
+}
+.ai-just-filled { animation: ai-pop 0.6s ease-out forwards; }
+
+/* PRINT */
+@media print {
+  body { background:#fff; }
+  #status-bar, #toolbar, #transcript-panel, #mode-screen, #bc-overlay { display:none !important; }
+  .page { margin-top:0; padding:8px; }
+}
+</style>
+</head>
+<body>
+
+<!-- ── MODE SELECTION ── -->
+<div id="mode-screen">
+  <div class="mode-title">Woodside Fire Protection District</div>
+  <div class="mode-heading">Smart Tactical<br>Worksheet</div>
+  <div class="mode-sub">AI-Assisted · Live Sync · Apple Pencil</div>
+
+  <div class="mode-incident-row">
+    <label>Incident ID:</label>
+    <input type="text" id="incident-id-input" placeholder="e.g. INC-2026-0226" value="">
+  </div>
+
+  <div class="mode-incident-row" id="api-key-row">
+    <label>Claude API Key:</label>
+    <input type="password" id="api-key-input" placeholder="sk-ant-api03-..." style="background:#1a1a1a;border:1px solid #333;color:#fff;font-family:var(--mono);font-size:12px;padding:8px 12px;outline:none;width:260px;">
+    <button onclick="saveApiKey()" style="background:#e8400c;border:none;color:#fff;font-family:var(--font);font-weight:700;font-size:12px;letter-spacing:0.1em;padding:8px 14px;cursor:pointer;">SAVE</button>
+  </div>
+  <div style="font-size:10px;color:#444;font-family:var(--mono);margin-bottom:20px;text-align:center;">Saved locally on this device only — never sent to GitHub</div>
+
+  <div class="mode-btns">
+    <button class="mode-btn ic" onclick="startMode('ic')">
+      <span class="mode-btn-icon">🎙</span>
+      IC Mode
+      <span class="mode-btn-desc">Listens · Fills · Syncs</span>
+    </button>
+    <button class="mode-btn bc" onclick="startMode('bc')">
+      <span class="mode-btn-icon">👁</span>
+      BC Mode
+      <span class="mode-btn-desc">Live read-only view</span>
+    </button>
+  </div>
+</div>
+
+<!-- ── STATUS BAR ── -->
+<div id="status-bar" style="display:none">
+  <div class="status-left">
+    <span class="mode-badge" id="mode-badge">IC</span>
+    <span id="incident-label">INC-2026-0226</span>
+    <div id="ai-badge">
+      <span id="ai-spinner">⟳</span>
+      <span id="ai-status-text">AI parsing...</span>
+    </div>
+  </div>
+  <div class="status-right">
+    <div class="sync-dot" id="sync-dot"></div>
+    <span class="sync-label" id="sync-label">offline</span>
+    <button id="mic-btn" title="Toggle microphone">🎙</button>
+  </div>
+</div>
+
+<!-- ── BC OVERLAY ── -->
+<div id="bc-overlay">📡 LIVE — IC is updating</div>
+
+<!-- ── TRANSCRIPT ── -->
+<div id="transcript-panel">
+  <div id="transcript-text"></div>
+</div>
+
+<!-- ── MAIN FORM ── -->
+<div class="page" id="main-page" style="display:none">
+
+  <div class="form-title">Structure Fire Tactical Worksheet</div>
+
+  <!-- HEADER -->
+  <div class="hdr-grid">
+    <div class="hdr-cell">
+      <span class="lbl">Incident Name</span>
+      <input class="afield" data-field="incident_name" type="text" placeholder="Name">
+      <span class="lbl" style="margin-top:3px">Com. Channel</span>
+      <input class="afield" data-field="com_channel" type="text" placeholder="Channel">
+    </div>
+    <div class="hdr-cell">
+      <span class="lbl">Incident Date</span>
+      <input class="afield" data-field="incident_date" type="text" placeholder="Date">
+      <span class="lbl" style="margin-top:3px">TAC Channel</span>
+      <input class="afield" data-field="tac_channel" type="text" placeholder="TAC">
+    </div>
+    <div class="hdr-cell">
+      <span class="lbl">Incident Time</span>
+      <input class="afield" data-field="incident_time" type="text" placeholder="Time">
+    </div>
+    <div class="hdr-cell">
+      <span class="lbl">Incident Location</span>
+      <input class="afield" data-field="location_1" type="text" placeholder="Address">
+      <input class="afield" data-field="location_2" type="text" style="margin-top:3px">
+    </div>
+  </div>
+
+  <!-- SIZE UP -->
+  <div style="border:1.5px solid var(--black);border-top:none;padding:3px 7px;display:flex;gap:6px;align-items:center;margin-bottom:3px;">
+    <span class="lbl" style="flex-shrink:0;">Size-Up: Facts / Probabilities / Own Situation / Decision / Plan —</span>
+    <input class="afield" data-field="sizeup" type="text" placeholder="Size-up narrative...">
+  </div>
+
+  <!-- TIMES -->
+  <div class="times-bar">
+    <div class="time-cell"><span class="lbl">Size Up</span><input class="afield" data-field="time_sizeup" type="text"></div>
+    <div class="time-cell"><span class="lbl">Water on Fire</span><input class="afield" data-field="time_water" type="text"></div>
+    <div class="time-cell"><span class="lbl">Knock-Down</span><input class="afield" data-field="time_knockdown" type="text"></div>
+    <div class="time-cell"><span class="lbl">Search</span><input class="afield" data-field="time_search" type="text"></div>
+    <div class="time-cell"><span class="lbl">Search Complete</span><input class="afield" data-field="time_search_complete" type="text"></div>
+    <div class="time-cell"><span class="lbl">Under Control</span><input class="afield" data-field="time_controlled" type="text"></div>
+  </div>
+
+  <!-- LEGEND -->
+  <div class="legend">
+    <div class="sec-hdr" style="padding:3px 8px;">Field Status Legend</div>
+    <div class="legend-body">
+      <div class="leg-item"><span class="leg-sym" style="color:var(--accent2);">★</span><div class="leg-desc"><strong>Yellow</strong> — Filled by AI from radio traffic</div></div>
+      <div class="leg-item"><span class="leg-sym" style="color:var(--green);">✓</span><div class="leg-desc"><strong>Green</strong> — Manually entered / confirmed</div></div>
+      <div class="leg-item"><span class="leg-sym" style="text-decoration:line-through;color:#cc0000;">E31</span><div class="leg-desc"><strong>Strikethrough</strong> — Deployed from staging (Pencil)</div></div>
+      <div class="leg-item"><span class="leg-sym" style="color:#555;">⊙</span><div class="leg-desc"><strong>Circle</strong> — Division supervisor (Pencil)</div></div>
+    </div>
+  </div>
+
+  <!-- MAIN 3-COL -->
+  <div class="main-grid">
+
+    <!-- COL 1: STAGING -->
+    <div>
+      <div class="sec">
+        <div class="sec-hdr">1st Alarm — Staging <small>× when deployed</small></div>
+        <div class="col-hdr"><span>UNIT</span><span>NAME / ASSIGNMENT</span><span>TIME OUT</span></div>
+        <div class="s-row"><span class="s-tag">E/Q –</span><div class="s-name"><input class="afield" data-field="s1_eq1" type="text"></div><div class="s-time"><input class="afield" data-field="s1_eq1_t" type="text"></div></div>
+        <div class="s-row"><span class="s-tag">E/Q –</span><div class="s-name"><input class="afield" data-field="s1_eq2" type="text"></div><div class="s-time"><input class="afield" data-field="s1_eq2_t" type="text"></div></div>
+        <div class="s-row"><span class="s-tag">E/Q –</span><div class="s-name"><input class="afield" data-field="s1_eq3" type="text"></div><div class="s-time"><input class="afield" data-field="s1_eq3_t" type="text"></div></div>
+        <div class="s-row"><span class="s-tag">E/Q –</span><div class="s-name"><input class="afield" data-field="s1_eq4" type="text"></div><div class="s-time"><input class="afield" data-field="s1_eq4_t" type="text"></div></div>
+        <div class="s-row"><span class="s-tag">E/Q –</span><div class="s-name"><input class="afield" data-field="s1_eq5" type="text"></div><div class="s-time"><input class="afield" data-field="s1_eq5_t" type="text"></div></div>
+        <div class="s-row"><span class="s-tag">T/Q –</span><div class="s-name"><input class="afield" data-field="s1_tq1" type="text"></div><div class="s-time"><input class="afield" data-field="s1_tq1_t" type="text"></div></div>
+        <div class="s-row"><span class="s-tag">T/Q –</span><div class="s-name"><input class="afield" data-field="s1_tq2" type="text"></div><div class="s-time"><input class="afield" data-field="s1_tq2_t" type="text"></div></div>
+        <div class="s-row"><span class="s-tag">BC –</span><div class="s-name"><input class="afield" data-field="s1_bc1" type="text"></div><div class="s-time"><input class="afield" data-field="s1_bc1_t" type="text"></div></div>
+        <div class="s-row"><span class="s-tag">BC –</span><div class="s-name"><input class="afield" data-field="s1_bc2" type="text"></div><div class="s-time"><input class="afield" data-field="s1_bc2_t" type="text"></div></div>
+        <div class="s-row"><span class="s-tag">CMD –</span><div class="s-name"><input class="afield" data-field="s1_cmd" type="text"></div><div class="s-time"><input class="afield" data-field="s1_cmd_t" type="text"></div></div>
+        <div class="s-row"><span class="s-tag">CH –</span><div class="s-name"><input class="afield" data-field="s1_ch" type="text"></div><div class="s-time"><input class="afield" data-field="s1_ch_t" type="text"></div></div>
+        <div class="s-row"><span class="s-tag">USAR –</span><div class="s-name"><input class="afield" data-field="s1_usar" type="text"></div><div class="s-time"><input class="afield" data-field="s1_usar_t" type="text"></div></div>
+      </div>
+
+      <div class="sec">
+        <div class="sec-hdr a2">2nd Alarm — Stage @ <small id="s2-time-display"></small></div>
+        <div class="col-hdr"><span>UNIT</span><span>NAME / ASSIGNMENT</span><span>TIME OUT</span></div>
+        <div class="s-row"><span class="s-tag">E/Q –</span><div class="s-name"><input class="afield" data-field="s2_eq1" type="text"></div><div class="s-time"><input class="afield" data-field="s2_eq1_t" type="text"></div></div>
+        <div class="s-row"><span class="s-tag">E/Q –</span><div class="s-name"><input class="afield" data-field="s2_eq2" type="text"></div><div class="s-time"><input class="afield" data-field="s2_eq2_t" type="text"></div></div>
+        <div class="s-row"><span class="s-tag">E/Q –</span><div class="s-name"><input class="afield" data-field="s2_eq3" type="text"></div><div class="s-time"><input class="afield" data-field="s2_eq3_t" type="text"></div></div>
+        <div class="s-row"><span class="s-tag">T/Q –</span><div class="s-name"><input class="afield" data-field="s2_tq1" type="text"></div><div class="s-time"><input class="afield" data-field="s2_tq1_t" type="text"></div></div>
+        <div class="s-row"><span class="s-tag">BC –</span><div class="s-name"><input class="afield" data-field="s2_bc1" type="text"></div><div class="s-time"><input class="afield" data-field="s2_bc1_t" type="text"></div></div>
+        <div class="s-row"><span class="s-tag">BS –</span><div class="s-name"><input class="afield" data-field="s2_bs1" type="text"></div><div class="s-time"><input class="afield" data-field="s2_bs1_t" type="text"></div></div>
+      </div>
+
+      <div class="sec">
+        <div class="sec-hdr a3">3rd Alarm <small id="s3-time-display"></small></div>
+        <div class="col-hdr"><span>UNIT</span><span>NAME / ASSIGNMENT</span><span>TIME OUT</span></div>
+        <div class="s-row"><span class="s-tag">E/Q –</span><div class="s-name"><input class="afield" data-field="s3_eq1" type="text"></div><div class="s-time"><input class="afield" data-field="s3_eq1_t" type="text"></div></div>
+        <div class="s-row"><span class="s-tag">E/Q –</span><div class="s-name"><input class="afield" data-field="s3_eq2" type="text"></div><div class="s-time"><input class="afield" data-field="s3_eq2_t" type="text"></div></div>
+        <div class="s-row"><span class="s-tag">E/Q –</span><div class="s-name"><input class="afield" data-field="s3_eq3" type="text"></div><div class="s-time"><input class="afield" data-field="s3_eq3_t" type="text"></div></div>
+        <div class="s-row"><span class="s-tag">T –</span><div class="s-name"><input class="afield" data-field="s3_t1" type="text"></div><div class="s-time"><input class="afield" data-field="s3_t1_t" type="text"></div></div>
+      </div>
+
+      <div class="sec">
+        <div class="sec-hdr a4">4th Alarm <small id="s4-time-display"></small></div>
+        <div class="col-hdr"><span>UNIT</span><span>NAME / ASSIGNMENT</span><span>TIME OUT</span></div>
+        <div class="s-row"><span class="s-tag">E/Q –</span><div class="s-name"><input class="afield" data-field="s4_eq1" type="text"></div><div class="s-time"><input class="afield" data-field="s4_eq1_t" type="text"></div></div>
+        <div class="s-row"><span class="s-tag">E/Q –</span><div class="s-name"><input class="afield" data-field="s4_eq2" type="text"></div><div class="s-time"><input class="afield" data-field="s4_eq2_t" type="text"></div></div>
+        <div class="s-row"><span class="s-tag">E/Q –</span><div class="s-name"><input class="afield" data-field="s4_eq3" type="text"></div><div class="s-time"><input class="afield" data-field="s4_eq3_t" type="text"></div></div>
+        <div class="s-row"><span class="s-tag">BC –</span><div class="s-name"><input class="afield" data-field="s4_bc1" type="text"></div><div class="s-time"><input class="afield" data-field="s4_bc1_t" type="text"></div></div>
+      </div>
+    </div>
+
+    <!-- COL 2: ACTIONS -->
+    <div>
+      <div class="sec" style="margin-bottom:5px">
+        <div class="sec-hdr">Mode</div>
+        <div class="clist c2col">
+          <label class="crow" data-check="mode_offensive"><input type="checkbox" data-field="mode_offensive"><span>Offensive</span></label>
+          <label class="crow" data-check="mode_defensive"><input type="checkbox" data-field="mode_defensive"><span>Defensive</span></label>
+          <label class="crow" data-check="mode_combination"><input type="checkbox" data-field="mode_combination"><span>Combination</span></label>
+        </div>
+      </div>
+
+      <div class="sec" style="margin-bottom:5px">
+        <div class="sec-hdr">360 / Size-Up Actions</div>
+        <div class="clist c2col">
+          <label class="crow"><input type="checkbox" data-field="cb_360"><span>360</span></label>
+          <label class="crow"><input type="checkbox" data-field="cb_360_update"><span>360 Update</span></label>
+          <label class="crow"><input type="checkbox" data-field="cb_ic"><span>I – Incident Command</span></label>
+          <label class="crow"><input type="checkbox" data-field="cb_water"><span>W – Water Supply</span></label>
+          <label class="crow"><input type="checkbox" data-field="cb_auto"><span>A – Auto/Sprinkler/Standpipe</span></label>
+          <label class="crow"><input type="checkbox" data-field="cb_search"><span>S – Search (pri/sec)</span></label>
+          <label class="crow"><input type="checkbox" data-field="cb_backup"><span>B – Back-Up Line</span></label>
+          <label class="crow"><input type="checkbox" data-field="cb_attack"><span>A – Attack Line (1¾/2½)</span></label>
+          <label class="crow"><input type="checkbox" data-field="cb_outteam"><span>O – Out Team</span></label>
+          <label class="crow"><input type="checkbox" data-field="cb_vent"><span>V – Ventilation</span></label>
+          <label class="crow"><input type="checkbox" data-field="cb_exposure"><span>E – Exposures</span></label>
+          <label class="crow"><input type="checkbox" data-field="cb_ric"><span>R – RIC Team</span></label>
+          <label class="crow"><input type="checkbox" data-field="cb_rehab"><span>R – Rehab</span></label>
+          <label class="crow"><input type="checkbox" data-field="cb_overhaul"><span>O – Overhaul</span></label>
+          <label class="crow"><input type="checkbox" data-field="cb_salvage"><span>S – Salvage</span></label>
+          <label class="crow"><input type="checkbox" data-field="cb_support"><span>S – Support</span></label>
+          <label class="crow"><input type="checkbox" data-field="cb_conditions"><span>C – Conditions</span></label>
+          <label class="crow"><input type="checkbox" data-field="cb_utilities"><span>U – Utilities (Elec/Solar/ESS/Gas)</span></label>
+          <label class="crow"><input type="checkbox" data-field="cb_redcross"><span>R – Red Cross</span></label>
+          <label class="crow"><input type="checkbox" data-field="cb_divgrps"><span>D – DIV/GRPS</span></label>
+        </div>
+      </div>
+
+      <div class="sec" style="margin-bottom:5px">
+        <div class="sec-hdr">AMR / Notifications <small>Line-through = called</small></div>
+        <div class="par-row">
+          <span class="par-lbl">PAR:</span>
+          <div class="r-grp">
+            <label class="r-item"><input type="radio" name="par" data-field="par_15"><span>15min</span></label>
+            <label class="r-item"><input type="radio" name="par" data-field="par_30"><span>30min</span></label>
+            <label class="r-item"><input type="radio" name="par" data-field="par_45"><span>45min</span></label>
+            <label class="r-item"><input type="radio" name="par" data-field="par_60"><span>60min</span></label>
+          </div>
+        </div>
+        <div class="clist c2col">
+          <label class="crow"><input type="checkbox" data-field="cb_amr"><span>A – AMR</span></label>
+          <label class="crow"><input type="checkbox" data-field="cb_mci"><span>M – MCI 1/2/3</span></label>
+          <label class="crow"><input type="checkbox" data-field="cb_pd"><span>P – PD</span></label>
+          <label class="crow"><input type="checkbox" data-field="cb_hazmat"><span>H – Hazmat</span></label>
+          <label class="crow"><input type="checkbox" data-field="cb_invest"><span>I – Investigator</span></label>
+          <label class="crow"><input type="checkbox" data-field="cb_boardup"><span>B – Board-Up Co.</span></label>
+          <label class="crow"><input type="checkbox" data-field="cb_clock"><span>I – Incident Clock</span></label>
+          <label class="crow"><input type="checkbox" data-field="cb_air"><span>A – Air Unit</span></label>
+          <label class="crow"><input type="checkbox" data-field="cb_notif"><span>N – Notifications</span></label>
+          <label class="crow"><input type="checkbox" data-field="cb_pars"><span>P – PARS</span></label>
+          <label class="crow"><input type="checkbox" data-field="cb_pio"><span>P – PIO</span></label>
+          <label class="crow"><input type="checkbox" data-field="cb_helo"><span>H – HELO</span></label>
+          <label class="crow"><input type="checkbox" data-field="cb_zones"><span>Z – ZONES Hot/Cold</span></label>
+          <label class="crow"><input type="checkbox" data-field="cb_pge"><span>PG&amp;E</span></label>
+        </div>
+        <div style="background:#f5f5f5;border-top:1px solid #ddd;padding:3px 7px;"><span class="lbl">1st Alarm Paging Groups</span></div>
+        <div class="clist c2col">
+          <label class="crow"><input type="checkbox" data-field="cb_ems"><span>EMS All Page</span></label>
+          <label class="crow"><input type="checkbox" data-field="cb_medop"><span>Medical Op Area Coord</span></label>
+          <label class="crow"><input type="checkbox" data-field="cb_oes"><span>OES Notification</span></label>
+          <label class="crow"><input type="checkbox" data-field="cb_psc"><span>PSC Admin</span></label>
+        </div>
+      </div>
+
+      <div class="sec" style="margin-bottom:5px">
+        <div class="sec-hdr solar">☀ Solar / ESS / Battery</div>
+        <div class="clist c2col">
+          <label class="crow"><input type="checkbox" data-field="cb_solar_panels"><span>Panels / Roof</span></label>
+          <label class="crow"><input type="checkbox" data-field="cb_solar_string"><span>String / Shut-off</span></label>
+          <label class="crow"><input type="checkbox" data-field="cb_solar_micro"><span>Micro-Invertor</span></label>
+          <label class="crow"><input type="checkbox" data-field="cb_solar_ess"><span>ESS / Battery</span></label>
+          <label class="crow"><input type="checkbox" data-field="cb_solar_vent"><span>Venting / Fire</span></label>
+          <label class="crow"><input type="checkbox" data-field="cb_solar_shutoff"><span>Shut-off</span></label>
+        </div>
+        <div style="padding:3px 7px;display:flex;align-items:center;gap:6px;border-top:1px solid #eee;">
+          <span class="lbl">Location:</span><input class="afield" data-field="solar_location" type="text" style="flex:1">
+        </div>
+      </div>
+
+      <div class="sec">
+        <div class="sec-hdr mayday">⚠ MAYDAY PROCEDURE</div>
+        <div class="clist c2col">
+          <label class="crow"><input type="checkbox" data-field="cb_md_hold"><span>Hold radio traffic</span></label>
+          <label class="crow"><input type="checkbox" data-field="cb_md_ack"><span>Acknowledge Mayday</span></label>
+          <label class="crow"><input type="checkbox" data-field="cb_md_contact"><span>Contact downed FF</span></label>
+          <label class="crow"><input type="checkbox" data-field="cb_md_pass"><span>Activate PASS</span></label>
+          <label class="crow"><input type="checkbox" data-field="cb_md_flash"><span>Flashlight</span></label>
+          <label class="crow"><input type="checkbox" data-field="cb_md_survival"><span>FF survival techniques</span></label>
+          <label class="crow"><input type="checkbox" data-field="cb_md_reposition"><span>Reposition closest</span></label>
+          <label class="crow"><input type="checkbox" data-field="cb_md_ric"><span>Deploy RIC &amp; RIC Grp. S</span></label>
+          <label class="crow"><input type="checkbox" data-field="cb_md_veis"><span>VEIS</span></label>
+          <label class="crow"><input type="checkbox" data-field="cb_md_2alarm"><span>Call 2 additional alarms</span></label>
+          <label class="crow"><input type="checkbox" data-field="cb_md_tac"><span>Secondary TAC/PAR</span></label>
+          <label class="crow"><input type="checkbox" data-field="cb_md_medical"><span>Establish medical/Helo</span></label>
+        </div>
+      </div>
+    </div>
+
+    <!-- COL 3: ASSIGNMENTS -->
+    <div>
+      <div class="sec" style="margin-bottom:5px">
+        <div class="sec-hdr">Unit Assignments <small>Circle = Supervisor</small></div>
+        <div class="assign-grid">
+          <div class="abox wide">
+            <div class="abox-hdr">IC / Command</div>
+            <div class="abox-body">
+              <input class="afield" data-field="assign_ic" type="text" placeholder="IC name / unit">
+            </div>
+          </div>
+          <div class="abox">
+            <div class="abox-hdr">Attack</div>
+            <div class="abox-body"><input class="afield" data-field="assign_attack" type="text" placeholder="Unit(s)"></div>
+          </div>
+          <div class="abox">
+            <div class="abox-hdr">Rescue / Search</div>
+            <div class="abox-body"><input class="afield" data-field="assign_rescue" type="text" placeholder="Unit(s)"></div>
+          </div>
+          <div class="abox">
+            <div class="abox-hdr">Water Supply</div>
+            <div class="abox-body"><input class="afield" data-field="assign_water" type="text" placeholder="Unit(s)"></div>
+          </div>
+          <div class="abox">
+            <div class="abox-hdr">Ventilation</div>
+            <div class="abox-body"><input class="afield" data-field="assign_vent" type="text" placeholder="Unit(s)"></div>
+          </div>
+          <div class="abox">
+            <div class="abox-hdr">Exposure</div>
+            <div class="abox-body"><input class="afield" data-field="assign_exposure" type="text" placeholder="Unit(s)"></div>
+          </div>
+          <div class="abox">
+            <div class="abox-hdr">Salvage / Overhaul</div>
+            <div class="abox-body"><input class="afield" data-field="assign_salvage" type="text" placeholder="Unit(s)"></div>
+          </div>
+          <div class="abox">
+            <div class="abox-hdr">RIC / RIC Group</div>
+            <div class="abox-body"><input class="afield" data-field="assign_ric" type="text" placeholder="Unit(s)"></div>
+          </div>
+          <div class="abox">
+            <div class="abox-hdr">Rehab</div>
+            <div class="abox-body"><input class="afield" data-field="assign_rehab" type="text" placeholder="Unit(s)"></div>
+          </div>
+          <div class="abox wide">
+            <div class="abox-hdr">Division / Group <small>write div + units</small></div>
+            <div class="abox-body"><input class="afield" data-field="assign_div" type="text" placeholder="Division name + assigned units"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- SEARCH + VICTIMS -->
+      <div class="sec" style="margin-bottom:5px">
+        <div class="sec-hdr">Search</div>
+        <div class="search-row">
+          <span class="search-lbl">Primary</span>
+          <div class="wbox"><input class="afield" data-field="search_p1" type="text"></div>
+          <div class="wbox"><input class="afield" data-field="search_p2" type="text"></div>
+          <div class="wbox"><input class="afield" data-field="search_p3" type="text"></div>
+          <label class="crow" style="border:none;padding:0 4px;"><input type="checkbox" data-field="cb_allclear"><span>All Clear</span></label>
+        </div>
+        <div class="search-row">
+          <span class="search-lbl">Secondary</span>
+          <div class="wbox"><input class="afield" data-field="search_s1" type="text"></div>
+          <div class="wbox"><input class="afield" data-field="search_s2" type="text"></div>
+          <div class="wbox"><input class="afield" data-field="search_s3" type="text"></div>
+        </div>
+        <div class="sec-hdr" style="margin-top:2px">Victims</div>
+        <div class="v-grid">
+          <div class="v-box"><div class="v-title">Victim #1</div><input class="afield" data-field="victim1" type="text"></div>
+          <div class="v-box"><div class="v-title">Victim #2</div><input class="afield" data-field="victim2" type="text"></div>
+          <div class="v-box"><div class="v-title">Victim #3</div><input class="afield" data-field="victim3" type="text"></div>
+          <div class="v-box"><div class="v-title">Victim #4</div><input class="afield" data-field="victim4" type="text"></div>
+        </div>
+      </div>
+
+      <!-- BOTTOM -->
+      <div class="bottom-bar">
+        <div class="bb"><div class="bb-hdr">Objectives</div><div class="bb-body"><input class="afield" data-field="objectives" type="text" placeholder="Life safety, stabilization..."></div></div>
+        <div class="bb"><div class="bb-hdr">Resources / Staging</div><div class="bb-body"><input class="afield" data-field="resources" type="text" placeholder="Mutual aid, staging..."></div></div>
+        <div class="bb">
+          <div class="bb-hdr">Command</div>
+          <div class="bb-body">
+            <span class="lbl">IC</span><input class="afield" data-field="command_ic" type="text" style="margin-bottom:6px">
+            <span class="lbl">CP Location</span><input class="afield" data-field="command_cp" type="text">
+          </div>
+        </div>
+      </div>
+    </div>
+  </div><!-- end main-grid -->
+</div><!-- end page -->
+
+<!-- TOOLBAR -->
+<div id="toolbar" style="display:none">
+  <span class="tlabel" id="toolbar-mode-label">IC</span>
+  <div class="tsep"></div>
+  <button class="tbtn" id="btn-mic-toolbar" title="Toggle mic">🎙</button>
+  <button class="tbtn" id="btn-transcript" title="Show/hide transcript">📝</button>
+  <div class="tsep"></div>
+  <button class="tbtn" id="btn-clear-ai" title="Clear AI fills">🗑</button>
+  <button class="tbtn" id="btn-print" title="Print">🖨️</button>
+  <div class="tsep"></div>
+  <button class="tbtn" id="btn-back" title="Back to mode select">⬅️</button>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════════════
+let currentMode = null; // 'ic' | 'bc'
+let incidentId = '';
+let recognition = null;
+let isListening = false;
+let transcriptBuffer = [];
+let aiProcessingTimer = null;
+let localData = {}; // local copy of all field values
+let isSyncing = false;
+
+// ═══════════════════════════════════════════════════════
+// MODE START
+// ═══════════════════════════════════════════════════════
+window.startMode = function(mode) {
+  currentMode = mode;
+  incidentId = document.getElementById('incident-id-input').value.trim() || 'INC-' + new Date().toISOString().slice(0,10);
+
+  document.getElementById('mode-screen').style.display = 'none';
+  document.getElementById('status-bar').style.display = 'flex';
+  document.getElementById('toolbar').style.display = 'flex';
+  document.getElementById('main-page').style.display = 'block';
+
+  const badge = document.getElementById('mode-badge');
+  badge.textContent = mode.toUpperCase();
+  badge.className = 'mode-badge ' + mode;
+
+  document.getElementById('incident-label').textContent = incidentId;
+  document.getElementById('toolbar-mode-label').textContent = mode.toUpperCase();
+
+  if (mode === 'bc') {
+    document.body.classList.add('bc-mode');
+    document.getElementById('mic-btn').style.display = 'none';
+    document.getElementById('btn-mic-toolbar').style.display = 'none';
+    document.getElementById('bc-overlay').classList.add('visible');
+  }
+
+  initFirebase();
+  initFieldListeners();
+};
+
+// ═══════════════════════════════════════════════════════
+// FIREBASE SYNC
+// ═══════════════════════════════════════════════════════
+function initFirebase() {
+  if (!window._firebaseReady) {
+    setSyncStatus('offline');
+    console.warn('Running without Firebase — no live sync');
+    return;
+  }
+
+  const db = window._db;
+  const dbRef = window._fbRef(db, 'incidents/' + incidentId);
+
+  setSyncStatus('live');
+
+  // Listen for remote changes (BC reads, IC also syncs)
+  window._fbOnValue(dbRef, (snapshot) => {
+    const data = snapshot.val();
+    if (!data) return;
+
+    // Apply all field values from Firebase
+    Object.entries(data).forEach(([field, value]) => {
+      if (field === '_lastUpdated') return;
+      applyFieldValue(field, value, 'remote');
+    });
+
+    if (currentMode === 'bc') {
+      document.getElementById('bc-overlay').textContent = '📡 LIVE — Last update: ' + new Date().toLocaleTimeString();
+    }
+  });
+}
+
+function pushToFirebase(field, value) {
+  if (!window._firebaseReady || currentMode === 'bc') return;
+  setSyncStatus('syncing');
+  const db = window._db;
+  const updates = {};
+  updates['incidents/' + incidentId + '/' + field] = value;
+  updates['incidents/' + incidentId + '/_lastUpdated'] = Date.now();
+  window._fbUpdate(window._fbRef(db), updates)
+    .then(() => setSyncStatus('live'))
+    .catch(() => setSyncStatus('offline'));
+}
+
+function setSyncStatus(status) {
+  const dot = document.getElementById('sync-dot');
+  const label = document.getElementById('sync-label');
+  dot.className = 'sync-dot ' + status;
+  label.textContent = status === 'live' ? 'live' : status === 'syncing' ? 'syncing' : status === 'offline' ? 'offline (local)' : status;
+}
+
+// ═══════════════════════════════════════════════════════
+// FIELD MANAGEMENT
+// ═══════════════════════════════════════════════════════
+function applyFieldValue(field, value, source) {
+  // Text inputs
+  const input = document.querySelector(`input[data-field="${field}"]`);
+  if (input) {
+    if (input.type === 'checkbox') {
+      input.checked = !!value;
+      const row = input.closest('.crow');
+      if (row && source === 'ai') row.classList.add('ai-checked');
+    } else if (input.type === 'radio') {
+      input.checked = !!value;
+    } else {
+      input.value = value || '';
+      if (source === 'ai') {
+        input.classList.add('ai-filled');
+        input.classList.add('ai-just-filled');
+        setTimeout(() => input.classList.remove('ai-just-filled'), 700);
+      } else if (source === 'manual') {
+        input.classList.remove('ai-filled');
+        input.classList.add('manual-filled');
+      }
+      // remote = just update value, keep existing style
+    }
+    localData[field] = value;
+  }
+}
+
+function initFieldListeners() {
+  // Listen to all afield inputs for manual changes
+  document.querySelectorAll('.afield').forEach(input => {
+    input.addEventListener('input', (e) => {
+      if (currentMode === 'bc') return;
+      const field = input.dataset.field;
+      if (!field) return;
+      input.classList.remove('ai-filled');
+      input.classList.add('manual-filled');
+      localData[field] = input.value;
+      pushToFirebase(field, input.value);
+    });
+  });
+
+  document.querySelectorAll('input[type=checkbox][data-field]').forEach(cb => {
+    cb.addEventListener('change', (e) => {
+      if (currentMode === 'bc') return;
+      const field = cb.dataset.field;
+      localData[field] = cb.checked;
+      pushToFirebase(field, cb.checked);
+    });
+  });
+}
+
+// ═══════════════════════════════════════════════════════
+// SPEECH RECOGNITION
+// ═══════════════════════════════════════════════════════
+function initSpeech() {
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SpeechRecognition) {
+    alert('Speech recognition not supported in this browser. Use Safari on iPad or Chrome on desktop.');
+    return false;
+  }
+
+  recognition = new SpeechRecognition();
+  recognition.continuous = true;
+  recognition.interimResults = true;
+  recognition.lang = 'en-US';
+  recognition.maxAlternatives = 1;
+
+  recognition.onstart = () => {
+    isListening = true;
+    document.getElementById('mic-btn').classList.add('listening');
+    document.getElementById('transcript-panel').classList.add('visible');
+    addTranscriptLine('🎙 Listening for radio traffic...', 'processing');
+  };
+
+  recognition.onend = () => {
+    isListening = false;
+    document.getElementById('mic-btn').classList.remove('listening');
+    // Auto-restart if we didn't manually stop
+    if (isListening !== false) {
+      setTimeout(() => { if (recognition) recognition.start(); }, 500);
+    }
+  };
+
+  recognition.onerror = (e) => {
+    console.warn('Speech error:', e.error);
+    if (e.error === 'not-allowed') {
+      alert('Microphone access denied. Please allow microphone access in Safari Settings.');
+    }
+  };
+
+  recognition.onresult = (event) => {
+    let interimTranscript = '';
+    let finalTranscript = '';
+
+    for (let i = event.resultIndex; i < event.results.length; i++) {
+      const transcript = event.results[i][0].transcript;
+      if (event.results[i].isFinal) {
+        finalTranscript += transcript;
+      } else {
+        interimTranscript += transcript;
+      }
+    }
+
+    if (interimTranscript) {
+      updateInterim(interimTranscript);
+    }
+
+    if (finalTranscript.trim()) {
+      addTranscriptLine(finalTranscript.trim(), 'final');
+      transcriptBuffer.push(finalTranscript.trim());
+
+      // Debounce AI parsing — wait 3 seconds of silence before sending
+      clearTimeout(aiProcessingTimer);
+      aiProcessingTimer = setTimeout(() => {
+        if (transcriptBuffer.length > 0) {
+          const text = transcriptBuffer.join(' ');
+          transcriptBuffer = [];
+          parseWithAI(text);
+        }
+      }, 3000);
+    }
+  };
+
+  return true;
+}
+
+function toggleMic() {
+  if (!recognition) {
+    if (!initSpeech()) return;
+  }
+
+  if (isListening) {
+    isListening = false;
+    recognition.stop();
+    document.getElementById('mic-btn').classList.remove('listening');
+    addTranscriptLine('⏹ Stopped listening', 'processing');
+  } else {
+    isListening = true;
+    recognition.start();
+  }
+}
+
+let interimEl = null;
+function updateInterim(text) {
+  const panel = document.getElementById('transcript-text');
+  if (!interimEl) {
+    interimEl = document.createElement('div');
+    interimEl.className = 'interim';
+    panel.appendChild(interimEl);
+  }
+  interimEl.textContent = '... ' + text;
+  panel.scrollTop = panel.scrollHeight;
+}
+
+function addTranscriptLine(text, type) {
+  const panel = document.getElementById('transcript-text');
+  if (interimEl) { interimEl.remove(); interimEl = null; }
+  const div = document.createElement('div');
+  div.className = type;
+  div.textContent = text;
+  panel.appendChild(div);
+  panel.scrollTop = panel.scrollHeight;
+  // Keep transcript manageable
+  while (panel.children.length > 20) panel.removeChild(panel.firstChild);
+}
+
+// ═══════════════════════════════════════════════════════
+// AI PARSING
+// ═══════════════════════════════════════════════════════
+async function parseWithAI(transcript) {
+  const apiKey = localStorage.getItem('claudeApiKey') || window._CLAUDE_API_KEY;
+  if (!apiKey || apiKey === 'YOUR_CLAUDE_API_KEY') {
+    addTranscriptLine('⚠ Claude API key not configured — skipping AI parse', 'processing');
+    return;
+  }
+
+  showAIBadge(true);
+  addTranscriptLine('🤖 Parsing: "' + transcript.slice(0,60) + (transcript.length > 60 ? '...' : '') + '"', 'processing');
+
+  // ── BUILD CURRENT FORM STATE so AI knows what's already filled ──
+  const formState = {};
+  document.querySelectorAll('.afield[data-field]').forEach(el => {
+    if (el.value.trim()) formState[el.dataset.field] = el.value.trim();
+  });
+  document.querySelectorAll('input[type=checkbox][data-field]').forEach(el => {
+    if (el.checked) formState[el.dataset.field] = true;
+  });
+
+  // Build a snapshot of which staging slots are empty vs filled
+  const stagingState = {
+    s1_eq: ['s1_eq1','s1_eq2','s1_eq3','s1_eq4','s1_eq5'].map(f => ({ field: f, empty: !formState[f] })),
+    s1_tq: ['s1_tq1','s1_tq2'].map(f => ({ field: f, empty: !formState[f] })),
+    s1_bc: ['s1_bc1','s1_bc2'].map(f => ({ field: f, empty: !formState[f] })),
+    s2_eq: ['s2_eq1','s2_eq2','s2_eq3'].map(f => ({ field: f, empty: !formState[f] })),
+    s3_eq: ['s3_eq1','s3_eq2','s3_eq3'].map(f => ({ field: f, empty: !formState[f] })),
+    s4_eq: ['s4_eq1','s4_eq2','s4_eq3'].map(f => ({ field: f, empty: !formState[f] })),
+  };
+
+  const systemPrompt = `You are an AI scribe for a fire department Incident Commander at Woodside Fire Protection District. Extract information from radio traffic and map to worksheet fields.
+
+CURRENT FORM STATE (already filled — DO NOT overwrite these unless correcting an error):
+${JSON.stringify(formState, null, 2)}
+
+EMPTY STAGING SLOTS (fill these in order, top to bottom):
+1st Alarm Engines (E/Q): ${stagingState.s1_eq.map(s => s.field + (s.empty ? ' [EMPTY]' : ' [filled:' + formState[s.field] + ']')).join(', ')}
+1st Alarm Trucks (T/Q): ${stagingState.s1_tq.map(s => s.field + (s.empty ? ' [EMPTY]' : ' [filled:' + formState[s.field] + ']')).join(', ')}
+1st Alarm BCs: ${stagingState.s1_bc.map(s => s.field + (s.empty ? ' [EMPTY]' : ' [filled:' + formState[s.field] + ']')).join(', ')}
+2nd Alarm Engines: ${stagingState.s2_eq.map(s => s.field + (s.empty ? ' [EMPTY]' : ' [filled:' + formState[s.field] + ']')).join(', ')}
+
+UNIT NAMING RULES:
+- "Engine 1" or "E1" → "E1", "Engine 31" → "E31", "Engine 32" → "E32"
+- "Truck 5" or "T5" → "T5", "Quint 8" → "Q8"  
+- "Battalion 1" or "BC1" → "BC1"
+- Numbers only like "one", "two", "three" → convert to digits: "E1", "E2", "E3"
+
+FIELD MAPPING RULES:
+- STAGING: When a unit is mentioned as responding, on scene, or staged → fill the next [EMPTY] slot in the correct category. NEVER overwrite a [filled] slot.
+- ASSIGNMENT: "Engine 1 on attack" → assign_attack: "E1". "Engine 2 on rescue" → assign_rescue: "E2"
+- IC: "Battalion 1 is command" or "BC1 IC" → assign_ic: "BC1", command_ic: "BC1"
+- TIMES: "water on fire at 14:32" → time_water: "14:32"
+- MODE: "offensive attack" → mode_offensive: true
+- CHECKBOXES: "360 complete" → cb_360: true. "requesting AMR" → cb_amr: true. "ventilation in progress" → cb_vent: true. "search initiated" → cb_search: true. "water supply established" → cb_water: true. "RIC in place" → cb_ric: true.
+
+CRITICAL RULES:
+- NEVER overwrite a field that already has a value unless the transcript explicitly corrects it
+- Fill staging slots sequentially — if s1_eq1 is filled, put the next engine in s1_eq2
+- Only return fields you are confident about from THIS transcript
+- Return ONLY raw JSON, no markdown, no explanation`;
+
+  try {
+    const response = await fetch('https://anthropic-proxy.5fpzwnckxp.workers.dev/', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        _apiKey: apiKey,
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1000,
+        system: systemPrompt,
+        messages: [{ role: 'user', content: 'Radio transcript: ' + transcript }]
+      })
+    });
+
+    const data = await response.json();
+    console.log('RAW API RESPONSE:', JSON.stringify(data));
+    const text = data.content?.[0]?.text || '{}';
+    console.log('AI TEXT:', text);
+    addTranscriptLine('🔍 AI said: ' + text.slice(0, 120), 'processing');
+
+    let parsed;
+    try {
+      parsed = JSON.parse(text.replace(/```json|```/g, '').trim());
+    } catch {
+      console.warn('AI returned non-JSON:', text);
+      showAIBadge(false);
+      return;
+    }
+
+    // Apply parsed fields — NEVER overwrite an existing non-AI filled field
+    let filledCount = 0;
+    Object.entries(parsed).forEach(([field, value]) => {
+      if (value === null || value === undefined || value === '') return;
+      const el = document.querySelector(`input[data-field="${field}"]`);
+      if (el && el.type !== 'checkbox' && el.type !== 'radio') {
+        // Skip if already manually filled
+        if (el.classList.contains('manual-filled')) return;
+      }
+      applyFieldValue(field, value, 'ai');
+      pushToFirebase(field, value);
+      filledCount++;
+    });
+
+    addTranscriptLine(`✅ AI filled ${filledCount} field${filledCount !== 1 ? 's' : ''}`, 'processing');
+
+  } catch (err) {
+    console.error('AI parse error:', err);
+    addTranscriptLine('⚠ AI parse failed: ' + err.message, 'processing');
+  }
+
+  showAIBadge(false);
+}
+
+function showAIBadge(visible) {
+  const badge = document.getElementById('ai-badge');
+  badge.classList.toggle('visible', visible);
+}
+
+// ═══════════════════════════════════════════════════════
+// TOOLBAR HANDLERS
+// ═══════════════════════════════════════════════════════
+document.getElementById('mic-btn').addEventListener('click', toggleMic);
+document.getElementById('btn-mic-toolbar').addEventListener('click', toggleMic);
+
+document.getElementById('btn-transcript').addEventListener('click', () => {
+  document.getElementById('transcript-panel').classList.toggle('visible');
+});
+
+document.getElementById('btn-clear-ai').addEventListener('click', () => {
+  if (!confirm('Clear all AI-filled fields?')) return;
+  document.querySelectorAll('.ai-filled').forEach(el => {
+    el.value = '';
+    el.classList.remove('ai-filled');
+  });
+  document.querySelectorAll('.ai-checked').forEach(el => {
+    el.classList.remove('ai-checked');
+  });
+});
+
+document.getElementById('btn-print').addEventListener('click', () => window.print());
+
+document.getElementById('btn-back').addEventListener('click', () => {
+  if (isListening && recognition) recognition.stop();
+  document.getElementById('mode-screen').style.display = 'flex';
+  document.getElementById('status-bar').style.display = 'none';
+  document.getElementById('toolbar').style.display = 'none';
+  document.getElementById('main-page').style.display = 'none';
+  document.getElementById('transcript-panel').classList.remove('visible');
+  document.body.classList.remove('bc-mode');
+});
+
+// API key management
+function saveApiKey() {
+  const key = document.getElementById('api-key-input').value.trim();
+  if (!key.startsWith('sk-ant-')) {
+    alert('That does not look like a valid Claude API key. It should start with sk-ant-');
+    return;
+  }
+  localStorage.setItem('claudeApiKey', key);
+  document.getElementById('api-key-input').value = '';
+  document.getElementById('api-key-input').placeholder = '✓ Key saved on this device';
+  document.getElementById('api-key-input').style.borderColor = '#1a7a3a';
+}
+
+// Pre-fill indicator if key already saved
+window.addEventListener('DOMContentLoaded', () => {
+  const saved = localStorage.getItem('claudeApiKey');
+  if (saved) {
+    document.getElementById('api-key-input').placeholder = '✓ Key saved — paste new one to update';
+    document.getElementById('api-key-input').style.borderColor = '#1a7a3a';
+  }
+});
+
+// Set today's date as default incident ID
+document.getElementById('incident-id-input').value = 'INC-' + new Date().toISOString().slice(0,10);
+
+// Wait for firebase module to load
+window.addEventListener('firebase-ready', () => {
+  console.log('Firebase module ready, firebaseReady:', window._firebaseReady);
+});
+
+// ── SERVICE WORKER (PWA offline support) ──
+if ('serviceWorker' in navigator) {
+  const swCode = `
+    const CACHE = 'tactical-ws-v1';
+    const ASSETS = [
+      self.location.pathname,
+      'https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow+Condensed:wght@400;600;700;900&family=Barlow:wght@400;500;600&display=swap'
+    ];
+    self.addEventListener('install', e => {
+      e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS).catch(()=>{})));
+      self.skipWaiting();
+    });
+    self.addEventListener('activate', e => {
+      e.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k)))));
+      self.clients.claim();
+    });
+    self.addEventListener('fetch', e => {
+      // Only cache GET requests, never API calls
+      if (e.request.method !== 'GET') return;
+      if (e.request.url.includes('anthropic') || e.request.url.includes('firebase')) return;
+      e.respondWith(
+        caches.match(e.request).then(cached => cached || fetch(e.request).then(res => {
+          const clone = res.clone();
+          caches.open(CACHE).then(c => c.put(e.request, clone));
+          return res;
+        }))
+      );
+    });
+  `;
+  const blob = new Blob([swCode], { type: 'application/javascript' });
+  const swUrl = URL.createObjectURL(blob);
+  navigator.serviceWorker.register(swUrl)
+    .then(() => console.log('Service worker registered — app works offline'))
+    .catch(e => console.log('SW registration skipped:', e.message));
+}
+
+// ── INSTALL PROMPT ──
+// Show "Add to Home Screen" hint on first visit
+if (!localStorage.getItem('pwaPromptShown')) {
+  setTimeout(() => {
+    const isStandalone = window.navigator.standalone || window.matchMedia('(display-mode: standalone)').matches;
+    if (!isStandalone) {
+      const hint = document.createElement('div');
+      hint.style.cssText = 'position:fixed;bottom:60px;left:50%;transform:translateX(-50%);background:#1a1a1a;border:1px solid #e8400c;color:#fff;padding:10px 16px;border-radius:6px;font-family:monospace;font-size:11px;text-align:center;z-index:300;max-width:280px;';
+      hint.innerHTML = '📲 <strong>Add to Home Screen</strong> for the full app experience<br><span style="color:#888;font-size:10px;">Tap Share → Add to Home Screen</span>';
+      hint.onclick = () => hint.remove();
+      document.body.appendChild(hint);
+      setTimeout(() => hint.remove(), 8000);
+      localStorage.setItem('pwaPromptShown', '1');
+    }
+  }, 3000);
+}
+</script>
+</body>
+</html>
